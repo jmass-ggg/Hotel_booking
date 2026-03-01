@@ -10,7 +10,7 @@ from drf_spectacular.utils import (
 )
 
 from account.models import SellerProfile
-from account.permissions import IsSellerWritePublicRead, IsSeller
+from account.permissions import IsSellerWritePublicRead, IsSeller,IsAdmin,IsStaff
 
 from .models import Property, RoomType, Room, PropertyPhoto, RoomPhoto
 from .serializer import (
@@ -23,7 +23,7 @@ from .serializer import (
     PropertyPhotoUploadSerializer,
     RoomPhotoUploadSerializer,
     PropertyPhotosBulkUploadSerializer,
-    RoomPhotosBulkUploadSerializer,
+    RoomPhotosBulkUploadSerializer,PropertyStatusUpdateSerializer
 )
 
 
@@ -53,6 +53,8 @@ from .serializer import (
     destroy=extend_schema(summary="Delete a property (SELLER only)", responses=None),
 )
 class PropertyViewSet(viewsets.ModelViewSet):
+    
+    
     permission_classes = [IsSellerWritePublicRead]
 
     def get_queryset(self):
@@ -104,6 +106,23 @@ class PropertyViewSet(viewsets.ModelViewSet):
         photo = s.save(property=prop)
         return Response(PropertyPhotoSerializer(photo).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(request=PropertyStatusUpdateSerializer,responses=PropertyStatusUpdateSerializer)
+    @action(
+        detail=False,
+        methods=["post"],permission_classes=[IsAdmin,IsStaff]
+        ,url_path="set-status",
+    )
+    def set_status(self,request,pk=None):
+        prop=super().get_object() 
+        s=PropertyStatusUpdateSerializer(data=request.data, context={"property": prop})
+        s.is_valid(raise_exception=True)
+        s.save()
+        return Response(
+            {"detail": "Status updated", "id": prop.id, "status": prop.status},
+            status=drf_status.HTTP_200_OK,
+        )
+    
+    
     @extend_schema(summary="List property photos", responses=PropertyPhotoSerializer(many=True))
     @upload_photo.mapping.get
     def list_photos(self, request, pk=None):

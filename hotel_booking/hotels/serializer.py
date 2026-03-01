@@ -103,20 +103,18 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"detail": "Only sellers can create properties."})
         return Property.objects.create(**validated_data)
     
-        
 class PropertyStatusUpdateSerializer(serializers.Serializer):
-    status=serializers.CharField(choices=Property.Status.choices)
-    
+    status = serializers.ChoiceField(choices=Property.Status.choices)
+
     def validate(self, attrs):
-        prop:Property=self.context["property"]
-        status=attrs["status"]
-        
-        if self.status == prop.status:
+        prop = self.context["property"]
+        new_status = attrs["status"]
+        if new_status == prop.status:
             return attrs
-    def save(self,**kwargs):
-        prop:Property=self.context["property"]
-        new_status=self.validated_data["status"]
-        
-        prop.status=new_status
+        return attrs
+
+    def save(self, **kwargs):
+        prop = self.context["property"]
+        prop.status = self.validated_data["status"]
         prop.save(update_fields=["status"])
         return prop
