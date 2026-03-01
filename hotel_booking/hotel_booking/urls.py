@@ -14,7 +14,7 @@ from drf_spectacular.views import (
 
 router = DefaultRouter()
 router.register(r"auth", AuthViewSet, basename="auth")
-router.register(r"properties", PropertyViewSet, basename="properties")  # /properties/ CRUD
+router.register(r"properties", PropertyViewSet, basename="properties")  
 
 
 property_room_type_list = RoomTypeViewSet.as_view({"get": "list", "post": "create"})

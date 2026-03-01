@@ -104,4 +104,19 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
         return Property.objects.create(**validated_data)
     
         
+class PropertyStatusUpdateSerializer(serializers.Serializer):
+    status=serializers.CharField(choices=Property.Status.choices)
+    
+    def validate(self, attrs):
+        prop:Property=self.context["property"]
+        status=attrs["status"]
         
+        if self.status == prop.status:
+            return attrs
+    def save(self,**kwargs):
+        prop:Property=self.context["property"]
+        new_status=self.validated_data["status"]
+        
+        prop.status=new_status
+        prop.save(update_fields=["status"])
+        return prop

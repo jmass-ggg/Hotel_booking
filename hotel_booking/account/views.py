@@ -4,10 +4,11 @@ from rest_framework.permissions import AllowAny
 from .serializer import RegisterSerializer,LoginSerializer
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
-
+from .throttles import RegisterRateThrottle,LoginRateThrottle
 class AuthViewSet(viewsets.ViewSet):
     @extend_schema(request=RegisterSerializer,responses=RegisterSerializer)
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny],
+            throttle_classes=[RegisterRateThrottle])
     def register(self,request):
         serializers=RegisterSerializer(data=request.data)
         if serializers.is_valid(raise_exception=True):
@@ -24,7 +25,7 @@ class AuthViewSet(viewsets.ViewSet):
             
             
     @extend_schema(request=LoginSerializer,responses=LoginSerializer)
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny],throttle_classes=[LoginRateThrottle])
     def login(self,request):
         serializers=LoginSerializer(data=request.data)
         serializers.is_valid(raise_exception=True)

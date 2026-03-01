@@ -26,4 +26,21 @@ class IsCustomer(BasePermission):
             request.user.is_authenticated
             and getattr(request.user.role) == "CUSTOMER"
         )
-    
+
+class IsAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return bool(
+            request.user 
+            and request.user.is_authenticated 
+            and request.user.role 
+            and request.user.role.name == "ADMIN"
+        )
+        
+class IsStaff(BasePermission):
+    def has_permission(self, request, view):
+        return bool(
+            request.user 
+            and request.user.is_authenticated 
+            and request.user.role 
+            and request.user.role.name == "STAFF"
+        )

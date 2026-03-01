@@ -4,7 +4,17 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from account.models import SellerProfile
+
 class Property(models.Model):
+    class Status(models.TextChoices):
+        DRAFT="draft","DRAFT"
+        SUBMITTED = "submitted", "Submitted"
+        UNDER_REVIEW = "under_review", "Under review"
+        CHANGES_REQUESTED = "changes_requested", "Changes requested" 
+        REJECTED = "rejected", "Rejected" 
+        APPROVED = "approved", "Approved" 
+        PUBLISHED = "published", "Published"
+        SUSPENDED = "suspended", "Suspended" 
     seller=models.ForeignKey(
         SellerProfile,
         on_delete=models.CASCADE,
@@ -15,7 +25,12 @@ class Property(models.Model):
     city = models.CharField(max_length=100)
     country = models.CharField(max_length=100)
     timezone = models.CharField(max_length=64, default="UTC")
-
+    status=models.CharField(
+        max_length=50,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

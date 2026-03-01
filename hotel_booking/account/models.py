@@ -9,6 +9,7 @@ class Roles(models.Model):
         CUSTOMER = "CUSTOMER", "Customer"
         SELLER = "SELLER", "Seller"
         ADMIN = "ADMIN", "Admin"
+        STAFF="STAFF","staff"
     name = models.CharField(max_length=20, choices=RoleType.choices, unique=True)
     description = models.CharField(max_length=255, blank=True)
 
