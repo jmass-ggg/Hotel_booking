@@ -5,7 +5,7 @@ from django.db import models
 from django.utils import timezone
 from account.models import SellerProfile
 class Property(models.Model):
-    seller_id=models.ForeignKey(
+    seller=models.ForeignKey(
         SellerProfile,
         on_delete=models.CASCADE,
         related_name="properties"

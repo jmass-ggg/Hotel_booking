@@ -4,6 +4,7 @@ from rest_framework.permissions import AllowAny
 from .serializer import RegisterSerializer,LoginSerializer
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
+
 class AuthViewSet(viewsets.ViewSet):
     @extend_schema(request=RegisterSerializer,responses=RegisterSerializer)
     @action(detail=False, methods=["post"], permission_classes=[AllowAny])

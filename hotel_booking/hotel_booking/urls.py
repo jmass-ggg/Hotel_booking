@@ -1,35 +1,48 @@
-"""
-URL configuration for hotel_booking project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
+# hotel_booking/urls.py
 from django.contrib import admin
-from django.urls import path,include
-from account.views import AuthViewSet
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+
+from account.views import AuthViewSet
+from hotels.views import PropertyViewSet, RoomTypeViewSet, RoomViewSet  # adjust import path if your app name differs
+
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
     SpectacularRedocView,
 )
 
-router=DefaultRouter()
-router.register("auth",AuthViewSet,basename="auth")
+router = DefaultRouter()
+router.register(r"auth", AuthViewSet, basename="auth")
+router.register(r"properties", PropertyViewSet, basename="properties")  # /properties/ CRUD
+
+
+property_room_type_list = RoomTypeViewSet.as_view({"get": "list", "post": "create"})
+property_room_type_detail = RoomTypeViewSet.as_view(
+    {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
+)
+
+property_room_list = RoomViewSet.as_view({"get": "list", "post": "create"})
+property_room_detail = RoomViewSet.as_view(
+    {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
+)
+
+room_photos = RoomViewSet.as_view({"get": "list_photos", "post": "upload_photo"})
+
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('',include(router.urls)),
+    path("admin/", admin.site.urls),
+
+    path("api/", include(router.urls)),
+
+    path("api/properties/<int:property_pk>/room-types/", property_room_type_list, name="property-roomtype-list"),
+    path("api/properties/<int:property_pk>/room-types/<int:pk>/", property_room_type_detail, name="property-roomtype-detail"),
+
+    path("api/properties/<int:property_pk>/rooms/", property_room_list, name="property-room-list"),
+    path("api/properties/<int:property_pk>/rooms/<int:pk>/", property_room_detail, name="property-room-detail"),
+
+    path("api/properties/<int:property_pk>/rooms/<int:pk>/photos/", room_photos, name="room-photos"),
+
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
