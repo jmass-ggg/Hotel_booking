@@ -35,7 +35,8 @@ class IsAdmin(BasePermission):
             and request.user.role 
             and request.user.role.name == "ADMIN"
         )
-        
+
+
 class IsStaff(BasePermission):
     def has_permission(self, request, view):
         return bool(

@@ -153,8 +153,6 @@ class PropertyViewSet(viewsets.ModelViewSet):
 
         return Response(PropertyPhotoSerializer(created, many=True).data, status=status.HTTP_201_CREATED)
 
-
-
 @extend_schema_view(
     list=extend_schema(
         summary="List room types for a property",

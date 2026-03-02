@@ -37,3 +37,4 @@ class AdminProfile(models.Model):
 
     def __str__(self):
         return f"AdminProfile({self.user.email})"
+    

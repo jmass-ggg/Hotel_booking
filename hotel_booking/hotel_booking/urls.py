@@ -5,7 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from account.views import AuthViewSet
 from hotels.views import PropertyViewSet, RoomTypeViewSet, RoomViewSet  # adjust import path if your app name differs
-
+from bookings.views import BookingViewSet
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
@@ -15,7 +15,7 @@ from drf_spectacular.views import (
 router = DefaultRouter()
 router.register(r"auth", AuthViewSet, basename="auth")
 router.register(r"properties", PropertyViewSet, basename="properties")  
-
+router.register(r"bookings", BookingViewSet, basename="bookings")
 
 property_room_type_list = RoomTypeViewSet.as_view({"get": "list", "post": "create"})
 property_room_type_detail = RoomTypeViewSet.as_view(
