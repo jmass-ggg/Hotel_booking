@@ -13,8 +13,7 @@ class AuthViewSet(viewsets.ViewSet):
         serializers=RegisterSerializer(data=request.data)
         if serializers.is_valid(raise_exception=True):
             user=serializers.save()
-            return Respons
-        e(
+            return Response(
             {
                 "id": user.id,
                 "username": user.username,
