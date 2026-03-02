@@ -75,6 +75,7 @@ class PropertySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "photos", "room_types", "rooms"]
         
 class PropertyCreateSerializer(serializers.ModelSerializer):
+    
     class Meta:
         model = Property
         fields = ["id", "name", "address", "city", "country", "timezone"]

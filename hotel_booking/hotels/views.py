@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
+from rest_framework.exceptions import PermissionDenied
 from drf_spectacular.utils import (
     extend_schema, extend_schema_view,
     OpenApiExample, OpenApiParameter, OpenApiTypes
@@ -174,6 +174,25 @@ class RoomTypeViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSellerWritePublicRead]
     serializer_class = RoomTypeSerializer
 
+    def create(self, request, *args, **kwargs):
+        is_many = isinstance(request.data, list)
+
+        serializer = self.get_serializer(data=request.data, many=is_many)
+        serializer.is_valid(raise_exception=True)
+
+        if is_many:
+            prop = Property.objects.get(id=self.kwargs["property_pk"])
+            sp = request.user.seller_profile
+            if prop.seller_id != sp.id:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("You do not own this property.")
+
+            serializer.save(property=prop)
+        else:
+            self.perform_create(serializer)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
     def get_queryset(self):
         return RoomType.objects.select_related("property").filter(property_id=self.kwargs["property_pk"])
 
@@ -215,6 +234,28 @@ class RoomViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSellerWritePublicRead]
     serializer_class = RoomSerializer
 
+    def create(self, request, *args, **kwargs):
+        is_many=isinstance(request.data,list)
+        serializer=self.get_serializer(data=request.data,many=is_many)
+        serializer.is_valid(raise_exception=True)
+        prop=Property.objects.get(id=self.kwargs["property_pk"])
+        sp=request.user.seller_profile
+        if prop.seller_id != sp.id:
+            raise PermissionDenied("You do not own this property.")
+        if is_many:
+            for item in serializer.validated_data:
+                if item["room_type"].property_id != prop.id:
+                    from rest_framework.exceptions import ValidationError
+                    raise ValidationError(
+                        {"room_type": "RoomType does not belong to this property."}
+                    )
+            serializer.save(property=prop)
+        else:
+            self.perform_create(serializer)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+            
     def get_queryset(self):
         return (
             Room.objects.select_related("property", "room_type")
