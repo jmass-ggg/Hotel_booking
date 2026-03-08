@@ -20,13 +20,13 @@ class IsSellerWritePublicRead(BasePermission):
         return IsSeller().has_permission(request, view)
 
 class IsCustomer(BasePermission):
-    def has_permission(self,request,view):
+    def has_permission(self, request, view):
         return bool(
-            request.user and
-            request.user.is_authenticated
-            and getattr(request.user.role) == "CUSTOMER"
+            request.user
+            and request.user.is_authenticated
+            and request.user.role
+            and request.user.role.name == "CUSTOMER"
         )
-
 class IsAdmin(BasePermission):
     def has_permission(self, request, view):
         return bool(
@@ -44,4 +44,11 @@ class IsStaff(BasePermission):
             and request.user.is_authenticated 
             and request.user.role 
             and request.user.role.name == "STAFF"
+        )
+        
+class IsAdminOrStaff(BasePermission):
+    def has_permission(self, request, view):
+        return bool(
+            request.user and request.user.is_authenticated and request.user.role
+            and request.user.role.name in ("ADMIN", "STAFF")
         )

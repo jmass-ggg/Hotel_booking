@@ -10,7 +10,7 @@ from drf_spectacular.utils import (
 )
 
 from account.models import SellerProfile
-from account.permissions import IsSellerWritePublicRead, IsSeller,IsAdmin,IsStaff
+from account.permissions import IsSellerWritePublicRead, IsSeller,IsAdmin,IsStaff,IsAdminOrStaff
 
 from .models import Property, RoomType, Room, PropertyPhoto, RoomPhoto
 from .serializer import (
@@ -80,11 +80,15 @@ class PropertyViewSet(viewsets.ModelViewSet):
     def get_object(self):
         obj = super().get_object()
 
+        role_name = getattr(getattr(self.request.user, "role", None), "name", None)
+        if role_name in ("ADMIN", "STAFF"):
+            return obj
+
         if self.request.method not in ("GET", "HEAD", "OPTIONS"):
             sp = getattr(self.request.user, "seller_profile", None)
             if not sp or obj.seller_id != sp.id:
-                from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied("You do not own this property.")
+
         return obj
 
     @extend_schema(
@@ -106,20 +110,30 @@ class PropertyViewSet(viewsets.ModelViewSet):
         photo = s.save(property=prop)
         return Response(PropertyPhotoSerializer(photo).data, status=status.HTTP_201_CREATED)
 
-    @extend_schema(request=PropertyStatusUpdateSerializer,responses=PropertyStatusUpdateSerializer)
-    @action(
-        detail=False,
-        methods=["post"],permission_classes=[IsAdmin,IsStaff]
-        ,url_path="set-status",
+    @extend_schema(
+        request=PropertyStatusUpdateSerializer,
+        responses=PropertyStatusUpdateSerializer,
+        summary="Set property status (ADMIN/STAFF only)",
     )
-    def set_status(self,request,pk=None):
-        prop=super().get_object() 
-        s=PropertyStatusUpdateSerializer(data=request.data, context={"property": prop})
+    @action(
+        detail=True,                       
+        methods=["post"],
+        permission_classes=[IsAuthenticated, IsAdminOrStaff],
+        url_path="set-status",
+    )
+    def set_status(self, request, pk=None):
+        prop = self.get_object() 
+
+        s = PropertyStatusUpdateSerializer(
+            data=request.data,
+            context={"property": prop},
+        )
         s.is_valid(raise_exception=True)
         s.save()
+
         return Response(
             {"detail": "Status updated", "id": prop.id, "status": prop.status},
-            status=drf_status.HTTP_200_OK,
+            status=status.HTTP_200_OK,
         )
     
     
@@ -200,10 +214,10 @@ class RoomTypeViewSet(viewsets.ModelViewSet):
         prop = Property.objects.get(id=self.kwargs["property_pk"])
         sp = self.request.user.seller_profile
         if prop.seller_id != sp.id:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not own this property.")
         serializer.save(property=prop)
 
+# from rest_framework.exceptions import PermissionDenied
 
 
 

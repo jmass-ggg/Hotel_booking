@@ -14,7 +14,7 @@ from drf_spectacular.views import (
 
 router = DefaultRouter()
 router.register(r"auth", AuthViewSet, basename="auth")
-router.register(r"properties", PropertyViewSet, basename="properties")  
+router.register(r"hotels", PropertyViewSet, basename="hotels")  
 router.register(r"bookings", BookingViewSet, basename="bookings")
 
 property_room_type_list = RoomTypeViewSet.as_view({"get": "list", "post": "create"})
@@ -35,13 +35,13 @@ urlpatterns = [
 
     path("api/", include(router.urls)),
 
-    path("api/properties/<int:property_pk>/room-types/", property_room_type_list, name="property-roomtype-list"),
-    path("api/properties/<int:property_pk>/room-types/<int:pk>/", property_room_type_detail, name="property-roomtype-detail"),
+    path("api/hotels/<int:property_pk>/room-types/", property_room_type_list, name="property-roomtype-list"),
+    path("api/hotels/<int:property_pk>/room-types/<int:pk>/", property_room_type_detail, name="property-roomtype-detail"),
 
-    path("api/properties/<int:property_pk>/rooms/", property_room_list, name="property-room-list"),
-    path("api/properties/<int:property_pk>/rooms/<int:pk>/", property_room_detail, name="property-room-detail"),
+    path("api/hotels/<int:property_pk>/rooms/", property_room_list, name="property-room-list"),
+    path("api/hotels/<int:property_pk>/rooms/<int:pk>/", property_room_detail, name="property-room-detail"),
 
-    path("api/properties/<int:property_pk>/rooms/<int:pk>/photos/", room_photos, name="room-photos"),
+    path("api/hotels/<int:property_pk>/rooms/<int:pk>/photos/", room_photos, name="room-photos"),
 
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
