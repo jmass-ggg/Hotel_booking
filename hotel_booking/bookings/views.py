@@ -1,13 +1,13 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
-
+from account.permissions import IsCustomer
 from .models import Booking
 from .serializer import BookingCreateSerializer, BookingSerializer
 
 
 class BookingViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsCustomer]
     queryset = Booking.objects.all()
 
     def get_queryset(self):

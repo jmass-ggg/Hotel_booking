@@ -1,10 +1,11 @@
 from rest_framework import generics,permissions,status,viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from .serializer import RegisterSerializer,LoginSerializer
+from .serializer import RegisterSerializer,LoginSerializer,AdminCreateSellerOrStaff
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 from .throttles import RegisterRateThrottle,LoginRateThrottle
+from .permissions import IsAdmin
 class AuthViewSet(viewsets.ViewSet):
     @extend_schema(request=RegisterSerializer,responses=RegisterSerializer)
     @action(detail=False, methods=["post"], permission_classes=[AllowAny],
@@ -30,4 +31,23 @@ class AuthViewSet(viewsets.ViewSet):
         serializers=LoginSerializer(data=request.data)
         serializers.is_valid(raise_exception=True)
         return Response(serializers.validated_data, status=status.HTTP_200_OK)
+    
+    @extend_schema(request=AdminCreateSellerOrStaff,responses=AdminCreateSellerOrStaff)
+    @action(detail=False,methods=["post"],permission_classes=[IsAdmin])
+    def create_seller_or_staff(self,request):
+        serializers=AdminCreateSellerOrStaff(data=request.data)
+        if serializers.is_valid(raise_exception=True):
+            user=serializers.save()
+            return Response(
+            {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "role": user.role.name if user.role else None,
+                "is_staff": user.is_staff,
+                "seller_profile": hasattr(user, "seller_profile"),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
             
