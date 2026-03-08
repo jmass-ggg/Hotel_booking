@@ -12,7 +12,7 @@ from drf_spectacular.utils import (
 from account.models import SellerProfile
 from account.permissions import IsSellerWritePublicRead, IsSeller,IsAdmin,IsStaff,IsAdminOrStaff
 
-from .models import Property, RoomType, Room, PropertyPhoto, RoomPhoto
+from .models import Property, RoomType, Room, PropertyPhoto, RoomPhoto,Amenity,RoomTypeAmenity,PropertyAmenity
 from .serializer import (
     PropertySerializer,
     PropertyCreateSerializer,
@@ -23,7 +23,9 @@ from .serializer import (
     PropertyPhotoUploadSerializer,
     RoomPhotoUploadSerializer,
     PropertyPhotosBulkUploadSerializer,
-    RoomPhotosBulkUploadSerializer,PropertyStatusUpdateSerializer
+    RoomPhotosBulkUploadSerializer,PropertyStatusUpdateSerializer,AmenitySerializer,
+    PropertyAmenitySerializer,
+    RoomTypeAmenitySerializer,
 )
 
 
@@ -236,7 +238,13 @@ class RoomTypeViewSet(viewsets.ModelViewSet):
         examples=[
             OpenApiExample(
                 "Create Room",
-                value={"room_type": 7, "room_number": "101", "floor": 1, "status": "active"},
+                value={
+  "room_type": 1,
+  "room_number": "101",
+  "floor": 1,
+  "status": "active",
+  "price": "20000"
+},
             )
         ],
     ),
@@ -351,3 +359,16 @@ class RoomViewSet(viewsets.ModelViewSet):
             created.append(RoomPhoto.objects.create(room=room, image=img, sort_order=i))
 
         return Response(RoomPhotoSerializer(created, many=True).data, status=status.HTTP_201_CREATED)
+    
+@extend_schema_view(
+    list=extend_schema(summary="List all amenities", responses=AmenitySerializer(many=True)),
+    retrieve=extend_schema(summary="Retrieve amenity", responses=AmenitySerializer),
+    create=extend_schema(summary="Create amenity", request=AmenitySerializer, responses=AmenitySerializer),
+    update=extend_schema(summary="Update amenity", request=AmenitySerializer, responses=AmenitySerializer),
+    partial_update=extend_schema(summary="Partial update amenity", request=AmenitySerializer, responses=AmenitySerializer),
+    destroy=extend_schema(summary="Delete amenity", responses=None),
+)
+class AmenityViewSet(viewsets.ModelViewSet):
+    queryset = Amenity.objects.all().order_by("name")
+    serializer_class = AmenitySerializer
+    permission_classes = [IsSellerWritePublicRead]

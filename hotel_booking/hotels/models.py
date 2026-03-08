@@ -54,9 +54,9 @@ class Room(models.Model):
 
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="rooms")
     room_type = models.ForeignKey(RoomType, on_delete=models.PROTECT, related_name="rooms")
-
     room_number = models.CharField(max_length=20)
     floor = models.PositiveSmallIntegerField(null=True, blank=True)
+    price=models.DecimalField(max_digits=12,decimal_places=2,default=0,null=False)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
 
     class Meta:
@@ -71,7 +71,9 @@ class Room(models.Model):
 
     def __str__(self):
         return f"{self.property.name} - Room {self.room_number}"
-    
+
+
+
 class PropertyPhoto(models.Model):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="photos")
     image = models.ImageField(upload_to="properties/")
@@ -90,3 +92,40 @@ class RoomPhoto(models.Model):
 
     class Meta:
         ordering = ["sort_order", "id"]
+
+class Amenity(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    category = models.CharField(max_length=50, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class PropertyAmenity(models.Model):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="property_amenities")
+    amenity = models.ForeignKey(Amenity, on_delete=models.CASCADE, related_name="property_links")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["property", "amenity"], name="uniq_property_amenity")
+        ]
+
+    def __str__(self):
+        return f"{self.property.name} - {self.amenity.name}"
+
+
+class RoomTypeAmenity(models.Model):
+    room_type = models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name="room_type_amenities")
+    amenity = models.ForeignKey(Amenity, on_delete=models.CASCADE, related_name="room_type_links")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["room_type", "amenity"], name="uniq_room_type_amenity")
+        ]
+
+    def __str__(self):
+        return f"{self.room_type} - {self.amenity.name}"
+    

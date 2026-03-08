@@ -1,7 +1,7 @@
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
-
+from decimal import Decimal
 from .models import Booking, BookingGuest
 
 
@@ -103,9 +103,26 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         guests_data = validated_data.pop("guests", [])
         user = self.context["request"].user
 
-        booking = Booking.objects.create(customer=user, **validated_data)
+        check_in = validated_data["check_in"]
+        check_out = validated_data["check_out"]
+        room = validated_data.get("room")
+        room_type = validated_data["room_type"]
+
+        nights = (check_out - check_in).days
+
+     
+        price_per_night = room.price 
+
+        total_amount = Decimal(nights) * Decimal(price_per_night)
+
+        booking = Booking.objects.create(
+            customer=user,
+            total_amount=total_amount,
+            **validated_data
+        )
 
         BookingGuest.objects.bulk_create(
             [BookingGuest(booking=booking, **g) for g in guests_data]
         )
+
         return booking

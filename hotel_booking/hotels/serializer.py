@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Property,Room,RoomPhoto,RoomType,PropertyPhoto
+from .models import Property,Room,RoomPhoto,RoomType,PropertyPhoto,Amenity,RoomTypeAmenity,PropertyAmenity
 from django.utils import timezone
 from account.models import SellerProfile
 
@@ -50,9 +50,32 @@ class RoomSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Room
-        fields = ["id", "property", "room_type", "room_number", "floor", "status", "photos"]
+        fields = ["id", "property", "room_type", "room_number", "floor", "status","price", "photos"]
         read_only_fields = ["property"]
-        
+
+class AmenitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Amenity
+        fields = ["id", "name", "category"]
+
+
+class PropertyAmenitySerializer(serializers.ModelSerializer):
+    amenity_detail = AmenitySerializer(source="amenity", read_only=True)
+
+    class Meta:
+        model = PropertyAmenity
+        fields = ["id", "property", "amenity", "amenity_detail"]
+        read_only_fields = ["property"]
+
+
+class RoomTypeAmenitySerializer(serializers.ModelSerializer):
+    amenity_detail = AmenitySerializer(source="amenity", read_only=True)
+
+    class Meta:
+        model = RoomTypeAmenity
+        fields = ["id", "room_type", "amenity", "amenity_detail"]
+        read_only_fields = ["room_type"]
+
 class PropertySerializer(serializers.ModelSerializer):
     photos = PropertyPhotoSerializer(many=True, read_only=True)
     room_types = RoomTypeSerializer(many=True, read_only=True)
