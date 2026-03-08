@@ -4,7 +4,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from account.views import AuthViewSet
-from hotels.views import PropertyViewSet, RoomTypeViewSet, RoomViewSet  # adjust import path if your app name differs
+from hotels.views import PropertyViewSet, RoomTypeViewSet, RoomViewSet  ,RoomTypeAmenityViewSet,PropertyAmenityViewSet
 from bookings.views import BookingViewSet
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -26,7 +26,16 @@ property_room_list = RoomViewSet.as_view({"get": "list", "post": "create"})
 property_room_detail = RoomViewSet.as_view(
     {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
 )
-
+room_type_amenity_list = RoomTypeAmenityViewSet.as_view({
+    "get": "list",
+    "post": "create",
+})
+room_type_amenity_detail = RoomTypeAmenityViewSet.as_view({
+    "get": "retrieve",
+    "put": "update",
+    "patch": "partial_update",
+    "delete": "destroy",
+})
 room_photos = RoomViewSet.as_view({"get": "list_photos", "post": "upload_photo"})
 
 
@@ -37,8 +46,8 @@ urlpatterns = [
 
     path("api/hotels/<int:property_pk>/room-types/", property_room_type_list, name="property-roomtype-list"),
     path("api/hotels/<int:property_pk>/room-types/<int:pk>/", property_room_type_detail, name="property-roomtype-detail"),
-
     path("api/hotels/<int:property_pk>/rooms/", property_room_list, name="property-room-list"),
+    path("api/hotels/<int:property_pk>/rooms/", room_type_amenity_list, name="amenity-list"),
     path("api/hotels/<int:property_pk>/rooms/<int:pk>/", property_room_detail, name="property-room-detail"),
 
     path("api/hotels/<int:property_pk>/rooms/<int:pk>/photos/", room_photos, name="room-photos"),

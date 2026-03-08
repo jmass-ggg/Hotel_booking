@@ -359,7 +359,8 @@ class RoomViewSet(viewsets.ModelViewSet):
             created.append(RoomPhoto.objects.create(room=room, image=img, sort_order=i))
 
         return Response(RoomPhotoSerializer(created, many=True).data, status=status.HTTP_201_CREATED)
-    
+from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import PermissionDenied, ValidationError
 @extend_schema_view(
     list=extend_schema(summary="List all amenities", responses=AmenitySerializer(many=True)),
     retrieve=extend_schema(summary="Retrieve amenity", responses=AmenitySerializer),
@@ -372,3 +373,144 @@ class AmenityViewSet(viewsets.ModelViewSet):
     queryset = Amenity.objects.all().order_by("name")
     serializer_class = AmenitySerializer
     permission_classes = [IsSellerWritePublicRead]
+    
+class PropertyAmenityViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsSellerWritePublicRead]
+    serializer_class = PropertyAmenitySerializer
+
+    def get_property(self):
+        prop = get_object_or_404(Property, id=self.kwargs["property_pk"])
+        return prop
+
+    def get_queryset(self):
+        prop = self.get_property()
+        return (
+            PropertyAmenity.objects
+            .select_related("property", "amenity")
+            .filter(property=prop)
+            .order_by("id")
+        )
+
+    def perform_create(self, serializer):
+        prop = self.get_property()
+        user = self.request.user
+
+        if not user.is_authenticated:
+            raise PermissionDenied("Authentication required.")
+
+        role_name = getattr(getattr(user, "role", None), "name", None)
+        if role_name not in ("ADMIN", "STAFF"):
+            sp = getattr(user, "seller_profile", None)
+            if not sp or prop.seller_id != sp.id:
+                raise PermissionDenied("You do not own this property.")
+
+        amenity = serializer.validated_data["amenity"]
+
+        if PropertyAmenity.objects.filter(property=prop, amenity=amenity).exists():
+            raise ValidationError({"amenity": "This amenity is already added to this property."})
+
+        serializer.save(property=prop)
+
+    def perform_update(self, serializer):
+        obj = self.get_object()
+        user = self.request.user
+
+        role_name = getattr(getattr(user, "role", None), "name", None)
+        if role_name not in ("ADMIN", "STAFF"):
+            sp = getattr(user, "seller_profile", None)
+            if not sp or obj.property.seller_id != sp.id:
+                raise PermissionDenied("You do not own this property.")
+
+        amenity = serializer.validated_data.get("amenity", obj.amenity)
+
+        if PropertyAmenity.objects.filter(
+            property=obj.property,
+            amenity=amenity
+        ).exclude(id=obj.id).exists():
+            raise ValidationError({"amenity": "This amenity is already added to this property."})
+
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        role_name = getattr(getattr(user, "role", None), "name", None)
+
+        if role_name not in ("ADMIN", "STAFF"):
+            sp = getattr(user, "seller_profile", None)
+            if not sp or instance.property.seller_id != sp.id:
+                raise PermissionDenied("You do not own this property.")
+
+        instance.delete()
+
+
+class RoomTypeAmenityViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsSellerWritePublicRead]
+    serializer_class = RoomTypeAmenitySerializer
+
+    def get_room_type(self):
+        room_type = get_object_or_404(
+            RoomType.objects.select_related("property"),
+            id=self.kwargs["room_type_pk"],
+            property_id=self.kwargs["property_pk"],
+        )
+        return room_type
+
+    def get_queryset(self):
+        room_type = self.get_room_type()
+        return (
+            RoomTypeAmenity.objects
+            .select_related("room_type", "room_type__property", "amenity")
+            .filter(room_type=room_type)
+            .order_by("id")
+        )
+
+    def perform_create(self, serializer):
+        room_type = self.get_room_type()
+        user = self.request.user
+
+        if not user.is_authenticated:
+            raise PermissionDenied("Authentication required.")
+
+        role_name = getattr(getattr(user, "role", None), "name", None)
+        if role_name not in ("ADMIN", "STAFF"):
+            sp = getattr(user, "seller_profile", None)
+            if not sp or room_type.property.seller_id != sp.id:
+                raise PermissionDenied("You do not own this property.")
+
+        amenity = serializer.validated_data["amenity"]
+
+        if RoomTypeAmenity.objects.filter(room_type=room_type, amenity=amenity).exists():
+            raise ValidationError({"amenity": "This amenity is already added to this room type."})
+
+        serializer.save(room_type=room_type)
+
+    def perform_update(self, serializer):
+        obj = self.get_object()
+        user = self.request.user
+
+        role_name = getattr(getattr(user, "role", None), "name", None)
+        if role_name not in ("ADMIN", "STAFF"):
+            sp = getattr(user, "seller_profile", None)
+            if not sp or obj.room_type.property.seller_id != sp.id:
+                raise PermissionDenied("You do not own this property.")
+
+        amenity = serializer.validated_data.get("amenity", obj.amenity)
+
+        if RoomTypeAmenity.objects.filter(
+            room_type=obj.room_type,
+            amenity=amenity
+        ).exclude(id=obj.id).exists():
+            raise ValidationError({"amenity": "This amenity is already added to this room type."})
+
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        role_name = getattr(getattr(user, "role", None), "name", None)
+
+        if role_name not in ("ADMIN", "STAFF"):
+            sp = getattr(user, "seller_profile", None)
+            if not sp or instance.room_type.property.seller_id != sp.id:
+                raise PermissionDenied("You do not own this property.")
+
+        instance.delete()
