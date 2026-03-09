@@ -126,3 +126,4 @@ class PropertyStatusUpdateSerializer(serializers.Serializer):
         prop.status = self.validated_data["status"]
         prop.save(update_fields=["status"])
         return prop
+    
