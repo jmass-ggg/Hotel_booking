@@ -18,7 +18,17 @@ class IsSellerWritePublicRead(BasePermission):
         if request.method in SAFE_METHODS:
             return True 
         return IsSeller().has_permission(request, view)
+    
+class IsSellerAdminOrStaffWritePublicRead(BasePermission):
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return True
 
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        role_name = getattr(getattr(request.user, "role", None), "name", None)
+        return role_name in ("SELLER", "ADMIN", "STAFF")
 class IsCustomer(BasePermission):
     def has_permission(self, request, view):
         return bool(

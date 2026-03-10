@@ -44,8 +44,7 @@ class AuthViewSet(viewsets.ViewSet):
                 "username": user.username,
                 "email": user.email,
                 "role": user.role.name if user.role else None,
-                "is_staff": user.is_staff,
-                "seller_profile": hasattr(user, "seller_profile"),
+               
             },
             status=status.HTTP_201_CREATED,
         )

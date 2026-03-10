@@ -109,6 +109,8 @@ class PropertyCreateSerializer(serializers.ModelSerializer):
             seller_profile=user.seller_profile
         except SellerProfile.DoesNotExist:
             raise serializers.ValidationError({"detail": "Only sellers can create properties."})
+        if hasattr(seller_profile,"property"):
+            raise serializers.ValidationError({"detail":"Seller already has a hotel"})
         return Property.objects.create(**validated_data)
     
 class PropertyStatusUpdateSerializer(serializers.Serializer):

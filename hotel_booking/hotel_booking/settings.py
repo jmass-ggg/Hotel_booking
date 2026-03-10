@@ -82,7 +82,7 @@ import os
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "hotelBook",
+        "NAME": "hotelbook",
         "USER": "postgres",
         "PASSWORD": "Kanye@12",
         "HOST": "localhost",
@@ -184,3 +184,5 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
 }
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

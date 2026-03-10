@@ -75,8 +75,11 @@ class PropertyViewSet(viewsets.ModelViewSet):
         try:
             seller_profile = self.request.user.seller_profile
         except SellerProfile.DoesNotExist:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Only sellers can create properties.")
+
+        if hasattr(seller_profile, "property"):
+            raise PermissionDenied("You already have a hotel. You cannot create more than one.")
+
         serializer.save(seller=seller_profile)
 
     def get_object(self):
@@ -218,10 +221,6 @@ class RoomTypeViewSet(viewsets.ModelViewSet):
         if prop.seller_id != sp.id:
             raise PermissionDenied("You do not own this property.")
         serializer.save(property=prop)
-
-# from rest_framework.exceptions import PermissionDenied
-
-
 
 @extend_schema_view(
     list=extend_schema(
