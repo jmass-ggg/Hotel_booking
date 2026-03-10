@@ -3,16 +3,24 @@ from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from drf_spectacular.utils import (
     extend_schema, extend_schema_view,
     OpenApiExample, OpenApiParameter, OpenApiTypes
 )
+from django.shortcuts import get_object_or_404
 
 from account.models import SellerProfile
-from account.permissions import IsSellerWritePublicRead, IsSeller,IsAdmin,IsStaff,IsAdminOrStaff
+from account.permissions import (
+    IsSellerWritePublicRead,
+    IsSeller,
+    IsAdminOrStaff,
+)
 
-from .models import Property, RoomType, Room, PropertyPhoto, RoomPhoto,Amenity,RoomTypeAmenity,PropertyAmenity
+from .models import (
+    Property, RoomType, Room, PropertyPhoto, RoomPhoto,
+    Amenity, RoomTypeAmenity, PropertyAmenity
+)
 from .serializer import (
     PropertySerializer,
     PropertyCreateSerializer,
@@ -23,11 +31,12 @@ from .serializer import (
     PropertyPhotoUploadSerializer,
     RoomPhotoUploadSerializer,
     PropertyPhotosBulkUploadSerializer,
-    RoomPhotosBulkUploadSerializer,PropertyStatusUpdateSerializer,AmenitySerializer,
+    RoomPhotosBulkUploadSerializer,
+    PropertyStatusUpdateSerializer,
+    AmenitySerializer,
     PropertyAmenitySerializer,
     RoomTypeAmenitySerializer,
 )
-
 
 
 @extend_schema_view(
@@ -41,7 +50,9 @@ from .serializer import (
             OpenApiExample(
                 "Create Property",
                 value={
-                    "name": "Hotel ABC",
+                    "property_name": "Hotel ABC",
+                    "email": "hotelabc@example.com",
+                    "contact_number": "+9779800000000",
                     "address": "Lakeside, Street 10",
                     "city": "Pokhara",
                     "country": "Nepal",
@@ -50,13 +61,19 @@ from .serializer import (
             )
         ],
     ),
-    update=extend_schema(summary="Update a property (SELLER only)", request=PropertyCreateSerializer, responses=PropertySerializer),
-    partial_update=extend_schema(summary="Partially update a property (SELLER only)", request=PropertyCreateSerializer, responses=PropertySerializer),
+    update=extend_schema(
+        summary="Update a property (SELLER only)",
+        request=PropertyCreateSerializer,
+        responses=PropertySerializer,
+    ),
+    partial_update=extend_schema(
+        summary="Partially update a property (SELLER only)",
+        request=PropertyCreateSerializer,
+        responses=PropertySerializer,
+    ),
     destroy=extend_schema(summary="Delete a property (SELLER only)", responses=None),
 )
 class PropertyViewSet(viewsets.ModelViewSet):
-    
-    
     permission_classes = [IsSellerWritePublicRead]
 
     def get_queryset(self):
@@ -110,9 +127,9 @@ class PropertyViewSet(viewsets.ModelViewSet):
     )
     def upload_photo(self, request, pk=None):
         prop = self.get_object()
-        s = PropertyPhotoUploadSerializer(data=request.data)
-        s.is_valid(raise_exception=True)
-        photo = s.save(property=prop)
+        serializer = PropertyPhotoUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        photo = serializer.save(property=prop)
         return Response(PropertyPhotoSerializer(photo).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
@@ -121,27 +138,26 @@ class PropertyViewSet(viewsets.ModelViewSet):
         summary="Set property status (ADMIN/STAFF only)",
     )
     @action(
-        detail=True,                       
+        detail=True,
         methods=["post"],
         permission_classes=[IsAuthenticated, IsAdminOrStaff],
         url_path="set-status",
     )
     def set_status(self, request, pk=None):
-        prop = self.get_object() 
+        prop = self.get_object()
 
-        s = PropertyStatusUpdateSerializer(
+        serializer = PropertyStatusUpdateSerializer(
             data=request.data,
             context={"property": prop},
         )
-        s.is_valid(raise_exception=True)
-        s.save()
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
         return Response(
             {"detail": "Status updated", "id": prop.id, "status": prop.status},
             status=status.HTTP_200_OK,
         )
-    
-    
+
     @extend_schema(summary="List property photos", responses=PropertyPhotoSerializer(many=True))
     @upload_photo.mapping.get
     def list_photos(self, request, pk=None):
@@ -163,25 +179,32 @@ class PropertyViewSet(viewsets.ModelViewSet):
     )
     def upload_photos_bulk(self, request, pk=None):
         prop = self.get_object()
-        s = PropertyPhotosBulkUploadSerializer(data=request.data)
-        s.is_valid(raise_exception=True)
+        serializer = PropertyPhotosBulkUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         created = []
-        for i, img in enumerate(s.validated_data["images"]):
-            created.append(PropertyPhoto.objects.create(property=prop, image=img, sort_order=i))
+        for i, img in enumerate(serializer.validated_data["images"]):
+            created.append(
+                PropertyPhoto.objects.create(
+                    property=prop,
+                    image=img,
+                    sort_order=i,
+                )
+            )
 
         return Response(PropertyPhotoSerializer(created, many=True).data, status=status.HTTP_201_CREATED)
+
 
 @extend_schema_view(
     list=extend_schema(
         summary="List room types for a property",
-        parameters=[OpenApiParameter("property_pk", OpenApiTypes.INT, OpenApiParameter.PATH)],
+        parameters=[OpenApiParameter("property_pk", OpenApiTypes.UUID, OpenApiParameter.PATH)],
         responses=RoomTypeSerializer(many=True),
     ),
     retrieve=extend_schema(summary="Retrieve room type", responses=RoomTypeSerializer),
     create=extend_schema(
         summary="Create room type for a property (SELLER only)",
-        parameters=[OpenApiParameter("property_pk", OpenApiTypes.INT, OpenApiParameter.PATH)],
+        parameters=[OpenApiParameter("property_pk", OpenApiTypes.UUID, OpenApiParameter.PATH)],
         request=RoomTypeSerializer,
         responses=RoomTypeSerializer,
     ),
@@ -195,55 +218,53 @@ class RoomTypeViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         is_many = isinstance(request.data, list)
-
         serializer = self.get_serializer(data=request.data, many=is_many)
         serializer.is_valid(raise_exception=True)
 
-        if is_many:
-            prop = Property.objects.get(id=self.kwargs["property_pk"])
-            sp = request.user.seller_profile
-            if prop.seller_id != sp.id:
-                from rest_framework.exceptions import PermissionDenied
-                raise PermissionDenied("You do not own this property.")
+        prop = get_object_or_404(Property, id=self.kwargs["property_pk"])
+        sp = request.user.seller_profile
 
-            serializer.save(property=prop)
-        else:
-            self.perform_create(serializer)
+        if prop.seller_id != sp.id:
+            raise PermissionDenied("You do not own this property.")
 
+        serializer.save(property=prop)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
+
     def get_queryset(self):
         return RoomType.objects.select_related("property").filter(property_id=self.kwargs["property_pk"])
 
     def perform_create(self, serializer):
-        prop = Property.objects.get(id=self.kwargs["property_pk"])
+        prop = get_object_or_404(Property, id=self.kwargs["property_pk"])
         sp = self.request.user.seller_profile
+
         if prop.seller_id != sp.id:
             raise PermissionDenied("You do not own this property.")
+
         serializer.save(property=prop)
+
 
 @extend_schema_view(
     list=extend_schema(
         summary="List rooms for a property",
-        parameters=[OpenApiParameter("property_pk", OpenApiTypes.INT, OpenApiParameter.PATH)],
+        parameters=[OpenApiParameter("property_pk", OpenApiTypes.UUID, OpenApiParameter.PATH)],
         responses=RoomSerializer(many=True),
     ),
     retrieve=extend_schema(summary="Retrieve room (with photos)", responses=RoomSerializer),
     create=extend_schema(
         summary="Create room for a property (SELLER only)",
-        parameters=[OpenApiParameter("property_pk", OpenApiTypes.INT, OpenApiParameter.PATH)],
+        parameters=[OpenApiParameter("property_pk", OpenApiTypes.UUID, OpenApiParameter.PATH)],
         request=RoomSerializer,
         responses=RoomSerializer,
         examples=[
             OpenApiExample(
                 "Create Room",
                 value={
-  "room_type": 1,
-  "room_number": "101",
-  "floor": 1,
-  "status": "active",
-  "price": "20000"
-},
+                    "room_type": "room-type-uuid",
+                    "room_number": "101",
+                    "floor": 1,
+                    "status": "active",
+                    "price": "20000",
+                },
             )
         ],
     ),
@@ -256,27 +277,24 @@ class RoomViewSet(viewsets.ModelViewSet):
     serializer_class = RoomSerializer
 
     def create(self, request, *args, **kwargs):
-        is_many=isinstance(request.data,list)
-        serializer=self.get_serializer(data=request.data,many=is_many)
+        is_many = isinstance(request.data, list)
+        serializer = self.get_serializer(data=request.data, many=is_many)
         serializer.is_valid(raise_exception=True)
-        prop=Property.objects.get(id=self.kwargs["property_pk"])
-        sp=request.user.seller_profile
+
+        prop = get_object_or_404(Property, id=self.kwargs["property_pk"])
+        sp = request.user.seller_profile
+
         if prop.seller_id != sp.id:
             raise PermissionDenied("You do not own this property.")
-        if is_many:
-            for item in serializer.validated_data:
-                if item["room_type"].property_id != prop.id:
-                    from rest_framework.exceptions import ValidationError
-                    raise ValidationError(
-                        {"room_type": "RoomType does not belong to this property."}
-                    )
-            serializer.save(property=prop)
-        else:
-            self.perform_create(serializer)
 
+        validated_items = serializer.validated_data if is_many else [serializer.validated_data]
+        for item in validated_items:
+            if item["room_type"].property_id != prop.id:
+                raise ValidationError({"room_type": "RoomType does not belong to this property."})
+
+        serializer.save(property=prop)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
-            
+
     def get_queryset(self):
         return (
             Room.objects.select_related("property", "room_type")
@@ -285,19 +303,17 @@ class RoomViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        prop = Property.objects.get(id=self.kwargs["property_pk"])
+        prop = get_object_or_404(Property, id=self.kwargs["property_pk"])
         sp = self.request.user.seller_profile
+
         if prop.seller_id != sp.id:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not own this property.")
 
         room_type = serializer.validated_data["room_type"]
         if room_type.property_id != prop.id:
-            from rest_framework.exceptions import ValidationError
             raise ValidationError({"room_type": "RoomType does not belong to this property."})
 
         serializer.save(property=prop)
-
 
     @extend_schema(
         summary="Upload a room photo (SELLER only)",
@@ -314,13 +330,13 @@ class RoomViewSet(viewsets.ModelViewSet):
     def upload_photo(self, request, pk=None, property_pk=None):
         room = self.get_object()
         sp = request.user.seller_profile
+
         if room.property.seller_id != sp.id:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not own this room/property.")
 
-        s = RoomPhotoUploadSerializer(data=request.data)
-        s.is_valid(raise_exception=True)
-        photo = s.save(room=room)
+        serializer = RoomPhotoUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        photo = serializer.save(room=room)
         return Response(RoomPhotoSerializer(photo).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(summary="List room photos", responses=RoomPhotoSerializer(many=True))
@@ -330,12 +346,11 @@ class RoomViewSet(viewsets.ModelViewSet):
         qs = room.photos.all().order_by("sort_order", "id")
         return Response(RoomPhotoSerializer(qs, many=True).data)
 
-
     @extend_schema(
-    summary="Upload a property photo (SELLER only)",
-    request=PropertyPhotoUploadSerializer,
-    responses=PropertyPhotoSerializer,
-)
+        summary="Upload room photos in bulk (SELLER only)",
+        request={"multipart/form-data": RoomPhotosBulkUploadSerializer},
+        responses=RoomPhotoSerializer(many=True),
+    )
     @action(
         detail=True,
         methods=["post"],
@@ -346,20 +361,26 @@ class RoomViewSet(viewsets.ModelViewSet):
     def upload_photos_bulk(self, request, pk=None, property_pk=None):
         room = self.get_object()
         sp = request.user.seller_profile
+
         if room.property.seller_id != sp.id:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not own this room/property.")
 
-        s = RoomPhotosBulkUploadSerializer(data=request.data)
-        s.is_valid(raise_exception=True)
+        serializer = RoomPhotosBulkUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         created = []
-        for i, img in enumerate(s.validated_data["images"]):
-            created.append(RoomPhoto.objects.create(room=room, image=img, sort_order=i))
+        for i, img in enumerate(serializer.validated_data["images"]):
+            created.append(
+                RoomPhoto.objects.create(
+                    room=room,
+                    image=img,
+                    sort_order=i,
+                )
+            )
 
         return Response(RoomPhotoSerializer(created, many=True).data, status=status.HTTP_201_CREATED)
-from django.shortcuts import get_object_or_404
-from rest_framework.exceptions import PermissionDenied, ValidationError
+
+
 @extend_schema_view(
     list=extend_schema(summary="List all amenities", responses=AmenitySerializer(many=True)),
     retrieve=extend_schema(summary="Retrieve amenity", responses=AmenitySerializer),
@@ -372,14 +393,14 @@ class AmenityViewSet(viewsets.ModelViewSet):
     queryset = Amenity.objects.all().order_by("name")
     serializer_class = AmenitySerializer
     permission_classes = [IsSellerWritePublicRead]
-    
+
+
 class PropertyAmenityViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSellerWritePublicRead]
     serializer_class = PropertyAmenitySerializer
 
     def get_property(self):
-        prop = get_object_or_404(Property, id=self.kwargs["property_pk"])
-        return prop
+        return get_object_or_404(Property, id=self.kwargs["property_pk"])
 
     def get_queryset(self):
         prop = self.get_property()
@@ -404,7 +425,6 @@ class PropertyAmenityViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("You do not own this property.")
 
         amenity = serializer.validated_data["amenity"]
-
         if PropertyAmenity.objects.filter(property=prop, amenity=amenity).exists():
             raise ValidationError({"amenity": "This amenity is already added to this property."})
 
@@ -421,11 +441,7 @@ class PropertyAmenityViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("You do not own this property.")
 
         amenity = serializer.validated_data.get("amenity", obj.amenity)
-
-        if PropertyAmenity.objects.filter(
-            property=obj.property,
-            amenity=amenity
-        ).exclude(id=obj.id).exists():
+        if PropertyAmenity.objects.filter(property=obj.property, amenity=amenity).exclude(id=obj.id).exists():
             raise ValidationError({"amenity": "This amenity is already added to this property."})
 
         serializer.save()
@@ -447,12 +463,11 @@ class RoomTypeAmenityViewSet(viewsets.ModelViewSet):
     serializer_class = RoomTypeAmenitySerializer
 
     def get_room_type(self):
-        room_type = get_object_or_404(
+        return get_object_or_404(
             RoomType.objects.select_related("property"),
             id=self.kwargs["room_type_pk"],
             property_id=self.kwargs["property_pk"],
         )
-        return room_type
 
     def get_queryset(self):
         room_type = self.get_room_type()
@@ -477,7 +492,6 @@ class RoomTypeAmenityViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("You do not own this property.")
 
         amenity = serializer.validated_data["amenity"]
-
         if RoomTypeAmenity.objects.filter(room_type=room_type, amenity=amenity).exists():
             raise ValidationError({"amenity": "This amenity is already added to this room type."})
 
@@ -494,11 +508,7 @@ class RoomTypeAmenityViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("You do not own this property.")
 
         amenity = serializer.validated_data.get("amenity", obj.amenity)
-
-        if RoomTypeAmenity.objects.filter(
-            room_type=obj.room_type,
-            amenity=amenity
-        ).exclude(id=obj.id).exists():
+        if RoomTypeAmenity.objects.filter(room_type=obj.room_type, amenity=amenity).exclude(id=obj.id).exists():
             raise ValidationError({"amenity": "This amenity is already added to this room type."})
 
         serializer.save()

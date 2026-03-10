@@ -20,7 +20,9 @@ class Property(models.Model):
         on_delete=models.CASCADE,
         related_name="property",
     )
-    name = models.CharField(max_length=150)
+    property_name = models.CharField(max_length=150)
+    email = models.EmailField()
+    contact_number = models.CharField(max_length=20)
     address = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
     country = models.CharField(max_length=100)
@@ -34,7 +36,7 @@ class Property(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.name} - {self.city}"
+        return f"{self.property_name} - {self.city}"
 
 
 class RoomType(models.Model):
@@ -46,7 +48,7 @@ class RoomType(models.Model):
     description = models.TextField(blank=True)
 
     def __str__(self):
-        return f"{self.property.name} - {self.name}"
+        return f"{self.property.property_name} - {self.name}"
 
 
 class Room(models.Model):
@@ -72,7 +74,7 @@ class Room(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.property.name} - Room {self.room_number}"
+        return f"{self.property.property_name} - Room {self.room_number}"
 
 
 class PropertyPhoto(models.Model):
@@ -85,7 +87,7 @@ class PropertyPhoto(models.Model):
         ordering = ["sort_order", "id"]
 
     def __str__(self):
-        return f"Photo for {self.property.name} #{self.id}"
+        return f"Photo for {self.property.property_name} #{self.id}"
 
 
 class RoomPhoto(models.Model):
@@ -121,7 +123,7 @@ class PropertyAmenity(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.property.name} - {self.amenity.name}"
+        return f"{self.property.property_name} - {self.amenity.name}"
 
 
 class RoomTypeAmenity(models.Model):
