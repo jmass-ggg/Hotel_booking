@@ -1,6 +1,7 @@
 import { apiRequest } from "./http";
 
 const HOTEL_BASE = "/hotels";
+const AMENITY_BASE = "/amenities";
 
 const unwrapList = (payload) => {
   if (Array.isArray(payload)) return payload;
@@ -33,15 +34,20 @@ export async function updateHotel(hotelId, payload) {
   });
 }
 
-export async function getPropertyAmenities(hotelId) {
-  const data = await apiRequest(`${HOTEL_BASE}/${hotelId}/amenities/`, {
+/* -----------------------------
+   PROPERTY AMENITIES
+-------------------------------- */
+
+export async function getPropertyAmenities(propertyId) {
+  const data = await apiRequest(`${AMENITY_BASE}/${propertyId}/amenities/`, {
     method: "GET",
   });
+
   return unwrapList(data);
 }
 
-export async function addPropertyAmenity(hotelId, payload) {
-  return apiRequest(`${HOTEL_BASE}/${hotelId}/amenities/`, {
+export async function addPropertyAmenity(propertyId, payload) {
+  return apiRequest(`${AMENITY_BASE}/${propertyId}/amenities/`, {
     method: "POST",
     body: JSON.stringify({
       amenity: {
@@ -52,16 +58,24 @@ export async function addPropertyAmenity(hotelId, payload) {
   });
 }
 
-export async function deletePropertyAmenity(hotelId, amenityLinkId) {
-  return apiRequest(`${HOTEL_BASE}/${hotelId}/amenities/${amenityLinkId}/`, {
-    method: "DELETE",
-  });
+export async function deletePropertyAmenity(propertyId, amenityLinkId) {
+  return apiRequest(
+    `${AMENITY_BASE}/${propertyId}/amenities/${amenityLinkId}/`,
+    {
+      method: "DELETE",
+    }
+  );
 }
+
+/* -----------------------------
+   PROPERTY PHOTOS
+-------------------------------- */
 
 export async function getHotelPhotos(hotelId) {
   const data = await apiRequest(`${HOTEL_BASE}/${hotelId}/photos/`, {
     method: "GET",
   });
+
   return unwrapList(data);
 }
 

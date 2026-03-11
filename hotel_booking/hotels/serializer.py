@@ -34,11 +34,6 @@ class RoomPhotoSerializer(serializers.ModelSerializer):
 
 
 
-class RoomTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RoomType
-        fields = ["id", "name", "max_occupancy", "base_bed_type", "description"]
-
 
 class PropertyPhotoUploadSerializer(serializers.ModelSerializer):
     image = serializers.ImageField()
@@ -145,11 +140,26 @@ class RoomTypeAmenitySerializer(serializers.ModelSerializer):
     #     instance.save()
     #     return instance
 
+class RoomTypeSerializer(serializers.ModelSerializer):
+    amenities=RoomTypeAmenitySerializer(
+        source="room_type_amenities",
+        many=True,
+        read_only=True
+    )
+    class Meta:
+        model = RoomType
+        fields = ["id", "name", "max_occupancy", "base_bed_type", "description","amenities"]
+
 
 class PropertySerializer(serializers.ModelSerializer):
     photos = PropertyPhotoSerializer(many=True, read_only=True)
     room_types = RoomTypeSerializer(many=True, read_only=True)
     rooms = RoomSerializer(many=True, read_only=True)
+    amenities = PropertyAmenitySerializer(
+        source="property_amenities",
+        many=True,
+        read_only=True
+    )
 
     class Meta:
         model = Property
@@ -165,6 +175,7 @@ class PropertySerializer(serializers.ModelSerializer):
             "status",
             "created_at",
             "photos",
+            "amenities",
             "room_types",
             "rooms",
         ]

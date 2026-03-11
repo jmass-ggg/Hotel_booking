@@ -1,4 +1,16 @@
+import { useNavigate } from "react-router-dom";
+
 function Topbar() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    localStorage.removeItem("user");
+
+    navigate("/login");
+  };
+
   return (
     <header className="topbar">
       <div className="topbar-search">
@@ -31,6 +43,15 @@ function Topbar() {
           </div>
           <div className="user-avatar">A</div>
         </div>
+
+        {/* Logout Button */}
+        <button
+          className="btn btn-light logout-btn"
+          onClick={handleLogout}
+        >
+          <span className="material-symbols-outlined">logout</span>
+          Logout
+        </button>
       </div>
     </header>
   );

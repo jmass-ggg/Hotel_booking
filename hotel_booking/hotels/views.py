@@ -89,7 +89,8 @@ class PropertyViewSet(viewsets.ModelViewSet):
         queryset = (
             Property.objects.all()
             .select_related("seller", "seller__user")
-            .prefetch_related("photos", "rooms", "room_types")
+            .prefetch_related("photos", "rooms", "room_types","propertyamenity_set__amenity",
+            "room_types__roomtypeamenity_set__amenity")
         )
 
         return queryset
