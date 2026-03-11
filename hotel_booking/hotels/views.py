@@ -134,33 +134,32 @@ class PropertyViewSet(viewsets.ModelViewSet):
 
         return obj
     @extend_schema(
-        summary="Get hotel by seller id (SELLER only)",
-        parameters=[
-            OpenApiParameter("seller_id", OpenApiTypes.UUID, OpenApiParameter.PATH)
-        ],
-        responses=PropertySerializer(many=True),
+        summary="Get current seller's hotel",
+        responses=PropertySerializer,
     )
     @action(
         detail=False,
         methods=["get"],
         permission_classes=[IsAuthenticated, IsSeller],
-        url_path=r"by-seller/(?P<seller_id>[^/.]+)",
+        url_path="my",
     )
-    def by_seller(self, request, seller_id=None):
+    def my(self, request):
         sp = getattr(request.user, "seller_profile", None)
         if not sp:
-            return Response([], status=status.HTTP_200_OK)
+            return Response(None, status=status.HTTP_200_OK)
 
-        # if seller is trying another seller_id, return empty list
-        if str(sp.id) != str(seller_id):
-            return Response([], status=status.HTTP_200_OK)
+        prop = (
+            Property.objects.select_related("seller", "seller__user")
+            .prefetch_related("photos", "rooms", "room_types")
+            .filter(seller=sp)
+            .first()
+        )
 
-        qs = Property.objects.select_related("seller", "seller__user").prefetch_related(
-            "photos", "rooms", "room_types"
-        ).filter(seller_id=seller_id)
+        if not prop:
+            return Response(None, status=status.HTTP_200_OK)
 
         return Response(
-            PropertySerializer(qs, many=True, context={"request": request}).data,
+            PropertySerializer(prop, context={"request": request}).data,
             status=status.HTTP_200_OK,
         )
     @extend_schema(
