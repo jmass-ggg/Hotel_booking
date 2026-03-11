@@ -1,15 +1,6 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
 
-export class ApiError extends Error {
-  constructor(message, status, data = null) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.data = data;
-  }
-}
-
 export const getAccessToken = () => localStorage.getItem("access");
 export const getRefreshToken = () => localStorage.getItem("refresh");
 
@@ -23,9 +14,21 @@ export const clearAuth = () => {
   localStorage.removeItem("refresh");
 };
 
-const buildErrorMessage = (data) => {
+const buildErrorMessage = (data, response) => {
+  if (response?.status === 404) return "API endpoint not found.";
+  if (response?.status === 401) return "Unauthorized. Please login again.";
+  if (response?.status === 403) return "You do not have permission to perform this action.";
+  if (response?.status === 500) return "Server error. Please try again.";
+
   if (!data) return "Request failed";
-  if (typeof data === "string") return data;
+
+  if (typeof data === "string") {
+    if (data.includes("<!DOCTYPE html>")) {
+      return `Request failed with status ${response?.status || ""}`.trim();
+    }
+    return data;
+  }
+
   if (data.detail) return data.detail;
   if (data.error) return data.error;
   if (data.message) return data.message;
@@ -77,7 +80,7 @@ export async function apiRequest(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    throw new ApiError(buildErrorMessage(data), response.status, data);
+    throw new Error(buildErrorMessage(data, response));
   }
 
   return data;

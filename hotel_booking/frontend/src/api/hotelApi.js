@@ -1,12 +1,22 @@
-import { apiRequest, ApiError } from "./http";
+import { apiRequest } from "./http";
 
 const HOTEL_BASE = "/hotels";
-const MY_HOTEL_ENDPOINT = `${HOTEL_BASE}/my-hotel/`;
 
-// If your backend URLs are different, change only these endpoint strings.
+const unwrapList = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.results)) return payload.results;
+  return [];
+};
 
 export async function getHotels() {
-  return apiRequest(`${HOTEL_BASE}/`);
+  const data = await apiRequest(`${HOTEL_BASE}/`);
+  return unwrapList(data);
+}
+
+export async function getMyHotel() {
+  return apiRequest(`${HOTEL_BASE}/my/`, {
+    method: "GET",
+  });
 }
 
 export async function createHotel(payload) {
@@ -16,36 +26,29 @@ export async function createHotel(payload) {
   });
 }
 
-export async function getMyHotel() {
-  try {
-    return await apiRequest(MY_HOTEL_ENDPOINT, {
-      method: "GET",
-    });
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
-      return null;
-    }
-    throw error;
-  }
-}
-
 export async function updateHotel(hotelId, payload) {
   return apiRequest(`${HOTEL_BASE}/${hotelId}/`, {
-    method: "PUT",
+    method: "PATCH",
     body: JSON.stringify(payload),
   });
 }
 
 export async function getPropertyAmenities(hotelId) {
-  return apiRequest(`${HOTEL_BASE}/${hotelId}/amenities/`, {
+  const data = await apiRequest(`${HOTEL_BASE}/${hotelId}/amenities/`, {
     method: "GET",
   });
+  return unwrapList(data);
 }
 
 export async function addPropertyAmenity(hotelId, payload) {
   return apiRequest(`${HOTEL_BASE}/${hotelId}/amenities/`, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      amenity: {
+        name: payload.name,
+        category: payload.category || "",
+      },
+    }),
   });
 }
 
@@ -56,9 +59,10 @@ export async function deletePropertyAmenity(hotelId, amenityLinkId) {
 }
 
 export async function getHotelPhotos(hotelId) {
-  return apiRequest(`${HOTEL_BASE}/${hotelId}/photos/`, {
+  const data = await apiRequest(`${HOTEL_BASE}/${hotelId}/photos/`, {
     method: "GET",
   });
+  return unwrapList(data);
 }
 
 export async function uploadHotelPhotosBulk(hotelId, files) {
@@ -68,7 +72,7 @@ export async function uploadHotelPhotosBulk(hotelId, files) {
     formData.append("images", file);
   });
 
-  return apiRequest(`${HOTEL_BASE}/${hotelId}/photos/bulk-upload/`, {
+  return apiRequest(`${HOTEL_BASE}/${hotelId}/photos/bulk/`, {
     method: "POST",
     body: formData,
   });

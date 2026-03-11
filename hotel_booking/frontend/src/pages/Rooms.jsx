@@ -21,6 +21,12 @@ const emptyRoomForm = {
   status: "active",
 };
 
+const toImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `http://127.0.0.1:8000${url}`;
+};
+
 function Rooms() {
   const [hotel, setHotel] = useState(null);
   const [roomTypes, setRoomTypes] = useState([]);
@@ -37,6 +43,7 @@ function Rooms() {
     try {
       setLoading(true);
       setError("");
+      setSuccess("");
 
       const currentHotel = await getMyHotel();
       setHotel(currentHotel);
@@ -52,10 +59,12 @@ function Rooms() {
         getRooms(currentHotel.id),
       ]);
 
-      setRoomTypes(roomTypeData);
-      setRooms(roomData);
+      setRoomTypes(Array.isArray(roomTypeData) ? roomTypeData : []);
+      setRooms(Array.isArray(roomData) ? roomData : []);
     } catch (err) {
       setError(err.message || "Failed to load rooms.");
+      setRoomTypes([]);
+      setRooms([]);
     } finally {
       setLoading(false);
     }
@@ -147,7 +156,7 @@ function Rooms() {
 
       const payload = {
         room_type: form.room_type,
-        room_number: form.room_number,
+        room_number: form.room_number.trim(),
         floor: form.floor === "" ? null : Number(form.floor),
         price: form.price,
         status: form.status,
@@ -159,7 +168,7 @@ function Rooms() {
       } else {
         await createRoom(hotel.id, payload);
         setSuccess("Room created successfully.");
-        resetForm();
+        setForm(emptyRoomForm);
       }
 
       await loadData();
@@ -178,7 +187,11 @@ function Rooms() {
       setSuccess("");
 
       await deleteRoom(hotel.id, roomId);
-      if (form.id === roomId) resetForm();
+
+      if (form.id === roomId) {
+        setForm(emptyRoomForm);
+      }
+
       setSuccess("Room deleted.");
       await loadData();
     } catch (err) {
@@ -422,7 +435,7 @@ function Rooms() {
                   <div className="upload-card" key={photo.id}>
                     <img
                       className="gallery-image"
-                      src={photo.image}
+                      src={toImageUrl(photo.image)}
                       alt={`Room ${index + 1}`}
                     />
                     <strong>Photo {index + 1}</strong>

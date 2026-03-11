@@ -30,9 +30,7 @@ const emptyAmenityForm = {
 
 const statusLabel = (value) => {
   if (!value) return "Draft";
-  return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return value.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 const statusTone = (value) => {
@@ -61,7 +59,26 @@ function MyHotel() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const hasProperty = Boolean(hotel?.id);
+  const hasHotel = Boolean(hotel?.id);
+
+  const resetHotelState = () => {
+    setHotel(null);
+    setForm(emptyHotelForm);
+    setAmenities([]);
+    setPhotos([]);
+  };
+
+  const fillFormFromHotel = (hotelData) => {
+    setForm({
+      property_name: hotelData?.property_name || "",
+      email: hotelData?.email || "",
+      contact_number: hotelData?.contact_number || "",
+      address: hotelData?.address || "",
+      city: hotelData?.city || "",
+      country: hotelData?.country || "",
+      timezone: hotelData?.timezone || "",
+    });
+  };
 
   const loadHotel = async () => {
     try {
@@ -71,37 +88,30 @@ function MyHotel() {
 
       const currentHotel = await getMyHotel();
 
-      if (!currentHotel || !currentHotel.id) {
-        setHotel(null);
-        setForm(emptyHotelForm);
-        setAmenities([]);
-        setPhotos([]);
+      if (!currentHotel) {
+        resetHotelState();
         return;
       }
 
       setHotel(currentHotel);
-      setForm({
-        property_name: currentHotel.property_name || "",
-        email: currentHotel.email || "",
-        contact_number: currentHotel.contact_number || "",
-        address: currentHotel.address || "",
-        city: currentHotel.city || "",
-        country: currentHotel.country || "",
-        timezone: currentHotel.timezone || "",
-      });
+      fillFormFromHotel(currentHotel);
+      setPhotos(Array.isArray(currentHotel.photos) ? currentHotel.photos : []);
 
-      const [amenityData, photoData] = await Promise.all([
-        getPropertyAmenities(currentHotel.id),
-        getHotelPhotos(currentHotel.id),
-      ]);
+      try {
+        const amenityData = await getPropertyAmenities(currentHotel.id);
+        setAmenities(Array.isArray(amenityData) ? amenityData : []);
+      } catch {
+        setAmenities([]);
+      }
 
-      setAmenities(Array.isArray(amenityData) ? amenityData : []);
-      setPhotos(Array.isArray(photoData) ? photoData : []);
+      try {
+        const photoData = await getHotelPhotos(currentHotel.id);
+        setPhotos(Array.isArray(photoData) ? photoData : []);
+      } catch {
+        setPhotos(Array.isArray(currentHotel.photos) ? currentHotel.photos : []);
+      }
     } catch (err) {
-      setHotel(null);
-      setForm(emptyHotelForm);
-      setAmenities([]);
-      setPhotos([]);
+      resetHotelState();
       setError(err.message || "Failed to load hotel.");
     } finally {
       setLoading(false);
@@ -118,10 +128,7 @@ function MyHotel() {
       { label: "Contact email added", done: !!form.email.trim() },
       { label: "Contact number added", done: !!form.contact_number.trim() },
       { label: "Address added", done: !!form.address.trim() },
-      {
-        label: "Location completed",
-        done: !!form.city.trim() && !!form.country.trim(),
-      },
+      { label: "Location completed", done: !!form.city.trim() && !!form.country.trim() },
       { label: "Timezone configured", done: !!form.timezone.trim() },
       { label: "Amenities assigned", done: amenities.length > 0 },
       { label: "Photos uploaded", done: photos.length > 0 },
@@ -135,26 +142,22 @@ function MyHotel() {
   const stats = [
     {
       label: "Listing Status",
-      value: hasProperty ? statusLabel(hotel?.status) : "No Property",
-      helper: hasProperty
+      value: hasHotel ? statusLabel(hotel?.status) : "No Hotel",
+      helper: hasHotel
         ? "Seller can view this status but cannot change it"
-        : "Create your property first",
-      badge: hasProperty ? statusLabel(hotel?.status) : "Empty",
-      tone: hasProperty ? statusTone(hotel?.status) : "neutral",
+        : "Create your hotel first",
+      badge: hasHotel ? statusLabel(hotel?.status) : "Empty",
+      tone: hasHotel ? statusTone(hotel?.status) : "neutral",
     },
     {
       label: "Property Amenities",
       value: String(amenities.length),
-      helper: hasProperty
-        ? "Amenities linked to this property"
-        : "No property created yet",
+      helper: hasHotel ? "Amenities linked to this property" : "No property created yet",
     },
     {
       label: "Media Coverage",
       value: `${photos.length} Photos`,
-      helper: hasProperty
-        ? "Images uploaded for the property"
-        : "No photos uploaded yet",
+      helper: hasHotel ? "Images uploaded for the property" : "No photos uploaded yet",
     },
   ];
 
@@ -190,12 +193,12 @@ function MyHotel() {
         timezone: form.timezone.trim(),
       };
 
-      if (hotel?.id) {
+      if (hasHotel) {
         await updateHotel(hotel.id, payload);
         setSuccess("Hotel updated successfully.");
       } else {
         await createHotel(payload);
-        setSuccess("Hotel saved successfully.");
+        setSuccess("Hotel created successfully.");
       }
 
       await loadHotel();
@@ -208,7 +211,6 @@ function MyHotel() {
 
   const handleUploadPhotos = async (e) => {
     const files = e.target.files;
-
     if (!files?.length || !hotel?.id) return;
 
     try {
@@ -229,7 +231,7 @@ function MyHotel() {
 
   const handleAddAmenity = async () => {
     if (!hotel?.id) {
-      setError("Create property first.");
+      setError("Create hotel first.");
       return;
     }
 
@@ -282,13 +284,14 @@ function MyHotel() {
           <button className="btn btn-light" type="button" onClick={loadHotel}>
             Refresh
           </button>
+
           <button
             className="btn btn-primary"
             type="button"
             onClick={handleSaveHotel}
             disabled={saving}
           >
-            {saving ? "Saving..." : hasProperty ? "Update" : "Save"}
+            {saving ? "Saving..." : hasHotel ? "Update Hotel" : "Create Hotel"}
           </button>
         </>
       }
@@ -311,10 +314,12 @@ function MyHotel() {
         ))}
       </div>
 
-      {!hasProperty && !loading ? (
+      {!hasHotel && !loading ? (
         <div className="empty-panel" style={{ marginBottom: "22px" }}>
-          No property found for this seller. Fill the form below and click{" "}
-          <strong>Save</strong>.
+          <p style={{ marginBottom: "12px" }}>No hotel found for this seller.</p>
+          <button className="btn btn-primary" type="button" onClick={handleSaveHotel}>
+            {saving ? "Creating..." : "Create Hotel"}
+          </button>
         </div>
       ) : null}
 
@@ -337,7 +342,7 @@ function MyHotel() {
                 <label>Status</label>
                 <input
                   type="text"
-                  value={hasProperty ? statusLabel(hotel?.status) : ""}
+                  value={hasHotel ? statusLabel(hotel?.status) : ""}
                   disabled
                   placeholder="Status will appear after property is created"
                 />
@@ -417,13 +422,13 @@ function MyHotel() {
           </InfoSection>
 
           <InfoSection title="Property Amenities">
-            {hasProperty ? (
+            {hasHotel ? (
               <div className="grid-two">
                 <div>
                   <div className="chip-grid">
                     {amenities.map((item) => (
                       <span className="amenity-chip selected" key={item.id}>
-                        {item.amenity?.name || item.name || "Amenity"}
+                        {item.amenity?.name || "Amenity"}
                         <button
                           type="button"
                           className="chip-remove"
@@ -474,13 +479,13 @@ function MyHotel() {
               </div>
             ) : (
               <div className="empty-panel">
-                Save the property first, then you can add amenities.
+                Create the hotel first, then you can add amenities.
               </div>
             )}
           </InfoSection>
 
           <InfoSection title="Property Gallery">
-            {hasProperty ? (
+            {hasHotel ? (
               <div className="upload-grid">
                 {photos.map((photo, index) => (
                   <div className="upload-card" key={photo.id}>
@@ -490,19 +495,15 @@ function MyHotel() {
                       alt={`Property ${index + 1}`}
                     />
                     <strong>Photo {index + 1}</strong>
-                    <span>Sort order: {photo.sort_order ?? index + 1}</span>
+                    <span>Sort order: {photo.sort_order}</span>
                   </div>
                 ))}
 
                 <label className="upload-card upload-card-add">
                   <div className="upload-visual upload-visual-dashed">
-                    <span className="material-symbols-outlined">
-                      add_photo_alternate
-                    </span>
+                    <span className="material-symbols-outlined">add_photo_alternate</span>
                   </div>
-                  <strong>
-                    {uploading ? "Uploading..." : "Add Property Photos"}
-                  </strong>
+                  <strong>{uploading ? "Uploading..." : "Add Property Photos"}</strong>
                   <span>Choose one or more files</span>
                   <input
                     className="hidden-file-input"
@@ -515,14 +516,12 @@ function MyHotel() {
                 </label>
 
                 {!photos.length ? (
-                  <div className="empty-panel">
-                    No property photos uploaded yet.
-                  </div>
+                  <div className="empty-panel">No property photos uploaded yet.</div>
                 ) : null}
               </div>
             ) : (
               <div className="empty-panel">
-                Save the property first, then you can upload photos.
+                Create the hotel first, then you can upload photos.
               </div>
             )}
           </InfoSection>
@@ -550,19 +549,15 @@ function MyHotel() {
           <section className="card">
             <div className="mini-panel-header">
               <h3>Review Notes</h3>
-              <span
-                className={`status-pill ${
-                  hasProperty ? statusTone(hotel?.status) : "neutral"
-                }`}
-              >
-                {hasProperty ? statusLabel(hotel?.status) : "Empty"}
+              <span className={`status-pill ${hasHotel ? statusTone(hotel?.status) : "neutral"}`}>
+                {hasHotel ? statusLabel(hotel?.status) : "Empty"}
               </span>
             </div>
 
             <p className="muted-paragraph">
-              {hasProperty
+              {hasHotel
                 ? "Update your hotel details, add amenities and upload photos here. Property status is controlled by admin or staff."
-                : "This seller does not have a property yet. Fill the empty fields and click Save to create one."}
+                : "No hotel exists for this seller yet. Fill the form and click Create Hotel."}
             </p>
           </section>
         </aside>

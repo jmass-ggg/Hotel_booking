@@ -32,16 +32,21 @@ export const deleteRoom = async (propertyId, roomId) => {
 };
 
 export const getRoomPhotos = async (propertyId, roomId) => {
-  const data = await apiRequest(`/hotels/${propertyId}/rooms/${roomId}/photos/`);
+  const data = await apiRequest(`/room/${propertyId}/rooms/${roomId}/photos/`);
   return unwrapList(data);
 };
 
-export const uploadRoomPhoto = async (propertyId, roomId, file, sortOrder = 0) => {
+export const uploadRoomPhoto = async (
+  propertyId,
+  roomId,
+  file,
+  sortOrder = 0
+) => {
   const formData = new FormData();
   formData.append("image", file);
   formData.append("sort_order", String(sortOrder));
 
-  return apiRequest(`/hotels/${propertyId}/rooms/${roomId}/photos/`, {
+  return apiRequest(`/room/${propertyId}/rooms/${roomId}/photos/`, {
     method: "POST",
     body: formData,
   });
