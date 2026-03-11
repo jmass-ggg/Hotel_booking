@@ -5,6 +5,7 @@ import SellerProfile from "./pages/SellerProfile";
 import MyHotel from "./pages/MyHotel";
 import RoomTypes from "./pages/RoomTypes";
 import Rooms from "./pages/Rooms";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
@@ -13,10 +14,43 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/profile" element={<SellerProfile />} />
-          <Route path="/my-hotel" element={<MyHotel />} />
-          <Route path="/room-types" element={<RoomTypes />} />
-          <Route path="/rooms" element={<Rooms />} />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <SellerProfile />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/my-hotel"
+            element={
+              <ProtectedRoute>
+                <MyHotel />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/room-types"
+            element={
+              <ProtectedRoute>
+                <RoomTypes />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/rooms"
+            element={
+              <ProtectedRoute>
+                <Rooms />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>

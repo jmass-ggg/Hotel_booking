@@ -1,76 +1,246 @@
+import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import InfoSection from "../components/seller/InfoSection";
+import { getMyHotel } from "../api/hotelApi";
+import {
+  createRoom,
+  deleteRoom,
+  getRooms,
+  uploadRoomPhoto,
+  updateRoom,
+} from "../api/roomApi";
+import { getRoomTypes } from "../api/roomTypeApi";
 import "../styles/sellerProfile.css";
 
-function Rooms() {
-  const rooms = [
-    {
-      roomNumber: "1101",
-      floor: 11,
-      roomType: "Deluxe King",
-      price: "$195.00",
-      status: "active",
-    },
-    {
-      roomNumber: "1102",
-      floor: 11,
-      roomType: "Deluxe King",
-      price: "$195.00",
-      status: "active",
-    },
-    {
-      roomNumber: "1204",
-      floor: 12,
-      roomType: "Executive Twin",
-      price: "$220.00",
-      status: "out_of_order",
-    },
-    {
-      roomNumber: "1401",
-      floor: 14,
-      roomType: "Family Suite",
-      price: "$340.00",
-      status: "active",
-    },
-  ];
+const emptyRoomForm = {
+  id: null,
+  room_number: "",
+  floor: "",
+  room_type: "",
+  price: "",
+  status: "active",
+};
 
-  const stats = [
-    {
-      label: "Total Rooms",
-      value: "26",
-      helper: "Current inventory tied to this property",
-    },
-    {
-      label: "Active Rooms",
-      value: "25",
-      helper: "Sellable units available for booking",
-      badge: "Healthy",
-      tone: "success",
-    },
-    {
-      label: "Out of Order",
-      value: "1",
-      helper: "Temporarily unavailable due to maintenance",
-      badge: "Needs follow-up",
-      tone: "warning",
-    },
-  ];
+function Rooms() {
+  const [hotel, setHotel] = useState(null);
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [form, setForm] = useState(emptyRoomForm);
+  const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const currentHotel = await getMyHotel();
+      setHotel(currentHotel);
+
+      if (!currentHotel?.id) {
+        setRoomTypes([]);
+        setRooms([]);
+        return;
+      }
+
+      const [roomTypeData, roomData] = await Promise.all([
+        getRoomTypes(currentHotel.id),
+        getRooms(currentHotel.id),
+      ]);
+
+      setRoomTypes(roomTypeData);
+      setRooms(roomData);
+    } catch (err) {
+      setError(err.message || "Failed to load rooms.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const roomTypeMap = useMemo(() => {
+    return roomTypes.reduce((acc, item) => {
+      acc[item.id] = item.name;
+      return acc;
+    }, {});
+  }, [roomTypes]);
+
+  const filteredRooms = useMemo(() => {
+    if (filter === "all") return rooms;
+    return rooms.filter((room) => room.status === filter);
+  }, [rooms, filter]);
+
+  const currentRoom = useMemo(() => {
+    return rooms.find((item) => item.id === form.id) || null;
+  }, [rooms, form.id]);
+
+  const stats = useMemo(() => {
+    const activeCount = rooms.filter((item) => item.status === "active").length;
+    const outOfOrderCount = rooms.filter(
+      (item) => item.status === "out_of_order"
+    ).length;
+
+    return [
+      {
+        label: "Total Rooms",
+        value: String(rooms.length),
+        helper: "Inventory linked to this property",
+      },
+      {
+        label: "Active Rooms",
+        value: String(activeCount),
+        helper: "Available to sell",
+        badge: activeCount ? "Healthy" : null,
+        tone: "success",
+      },
+      {
+        label: "Out of Order",
+        value: String(outOfOrderCount),
+        helper: "Temporarily unavailable",
+        badge: outOfOrderCount ? "Needs follow-up" : null,
+        tone: "warning",
+      },
+    ];
+  }, [rooms]);
+
+  const resetForm = () => {
+    setForm(emptyRoomForm);
+    setError("");
+    setSuccess("");
+  };
+
+  const fillForm = (room) => {
+    setForm({
+      id: room.id,
+      room_number: room.room_number || "",
+      floor: room.floor ?? "",
+      room_type: room.room_type || "",
+      price: room.price || "",
+      status: room.status || "active",
+    });
+    setError("");
+    setSuccess("");
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveRoom = async () => {
+    if (!hotel?.id) {
+      setError("Create hotel first.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+      setSuccess("");
+
+      const payload = {
+        room_type: form.room_type,
+        room_number: form.room_number,
+        floor: form.floor === "" ? null : Number(form.floor),
+        price: form.price,
+        status: form.status,
+      };
+
+      if (form.id) {
+        await updateRoom(hotel.id, form.id, payload);
+        setSuccess("Room updated successfully.");
+      } else {
+        await createRoom(hotel.id, payload);
+        setSuccess("Room created successfully.");
+        resetForm();
+      }
+
+      await loadData();
+    } catch (err) {
+      setError(err.message || "Failed to save room.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteRoom = async (roomId) => {
+    if (!hotel?.id) return;
+
+    try {
+      setError("");
+      setSuccess("");
+
+      await deleteRoom(hotel.id, roomId);
+      if (form.id === roomId) resetForm();
+      setSuccess("Room deleted.");
+      await loadData();
+    } catch (err) {
+      setError(err.message || "Failed to delete room.");
+    }
+  };
+
+  const handleUploadPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !hotel?.id || !currentRoom?.id) return;
+
+    try {
+      setUploading(true);
+      setError("");
+      setSuccess("");
+
+      await uploadRoomPhoto(
+        hotel.id,
+        currentRoom.id,
+        file,
+        currentRoom.photos?.length || 0
+      );
+
+      setSuccess("Room photo uploaded successfully.");
+      await loadData();
+    } catch (err) {
+      setError(err.message || "Failed to upload room photo.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
 
   return (
     <DashboardLayout
       title="Rooms"
-      subtitle="Manage room-level inventory, pricing, assignments and operational status."
+      subtitle="Manage room inventory, room type mapping, status and photos."
       actions={
         <>
-          <button className="btn btn-light" type="button">
-            Import Inventory
+          <button className="btn btn-light" type="button" onClick={resetForm}>
+            New Room
           </button>
-          <button className="btn btn-primary" type="button">
-            Add Room
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={handleSaveRoom}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : form.id ? "Update Room" : "Add Room"}
           </button>
         </>
       }
     >
+      {error ? <div className="status-message error">{error}</div> : null}
+      {success ? <div className="status-message success">{success}</div> : null}
+
+      {!hotel?.id && !loading ? (
+        <div className="empty-panel">
+          Create your hotel first before creating rooms.
+        </div>
+      ) : null}
+
       <div className="stats-grid">
         {stats.map((item) => (
           <section className="card stat-card" key={item.label}>
@@ -91,17 +261,29 @@ function Rooms() {
           <div>
             <span className="card-kicker">Inventory</span>
             <h3>Room List</h3>
-            <p>Track room number, floor, mapped type, nightly price and status.</p>
+            <p>Track room number, floor, room type, price and status.</p>
           </div>
 
           <div className="toolbar-chips">
-            <button type="button" className="filter-chip active">
+            <button
+              type="button"
+              className={`filter-chip ${filter === "all" ? "active" : ""}`}
+              onClick={() => setFilter("all")}
+            >
               All
             </button>
-            <button type="button" className="filter-chip">
+            <button
+              type="button"
+              className={`filter-chip ${filter === "active" ? "active" : ""}`}
+              onClick={() => setFilter("active")}
+            >
               Active
             </button>
-            <button type="button" className="filter-chip">
+            <button
+              type="button"
+              className={`filter-chip ${filter === "out_of_order" ? "active" : ""}`}
+              onClick={() => setFilter("out_of_order")}
+            >
               Out of Order
             </button>
           </div>
@@ -121,11 +303,11 @@ function Rooms() {
             </thead>
 
             <tbody>
-              {rooms.map((room) => (
-                <tr key={room.roomNumber}>
-                  <td>{room.roomNumber}</td>
-                  <td>{room.floor}</td>
-                  <td>{room.roomType}</td>
+              {filteredRooms.map((room) => (
+                <tr key={room.id}>
+                  <td>{room.room_number}</td>
+                  <td>{room.floor ?? "-"}</td>
+                  <td>{roomTypeMap[room.room_type] || "Unknown"}</td>
                   <td>{room.price}</td>
                   <td>
                     <span
@@ -137,58 +319,95 @@ function Rooms() {
                     </span>
                   </td>
                   <td className="table-actions">
-                    <button type="button" className="table-link">
+                    <button
+                      type="button"
+                      className="table-link"
+                      onClick={() => fillForm(room)}
+                    >
                       Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="table-link table-link-danger"
+                      onClick={() => handleDeleteRoom(room.id)}
+                    >
+                      Delete
                     </button>
                   </td>
                 </tr>
               ))}
+
+              {!filteredRooms.length ? (
+                <tr>
+                  <td colSpan="6">
+                    <div className="empty-panel">No rooms found.</div>
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
       </section>
 
-      <InfoSection title="Create / Edit Room">
+      <InfoSection title={form.id ? "Edit Room" : "Create Room"}>
         <div className="form-grid">
           <div className="form-group">
             <label>Room Number</label>
-            <input type="text" placeholder="e.g. 1204" />
+            <input
+              type="text"
+              name="room_number"
+              value={form.room_number}
+              onChange={handleFormChange}
+              placeholder="101"
+            />
           </div>
 
           <div className="form-group">
             <label>Floor</label>
-            <input type="number" min="0" placeholder="12" />
-          </div>
-
-          <div className="form-group">
-            <label>Property</label>
-            <select defaultValue="royal-suites-manhattan">
-              <option value="royal-suites-manhattan">
-                Royal Suites Manhattan
-              </option>
-            </select>
+            <input
+              type="number"
+              min="0"
+              name="floor"
+              value={form.floor}
+              onChange={handleFormChange}
+              placeholder="1"
+            />
           </div>
 
           <div className="form-group">
             <label>Room Type</label>
-            <select defaultValue="">
-              <option value="" disabled>
-                Select room type
-              </option>
-              <option value="deluxe-king">Deluxe King</option>
-              <option value="executive-twin">Executive Twin</option>
-              <option value="family-suite">Family Suite</option>
+            <select
+              name="room_type"
+              value={form.room_type}
+              onChange={handleFormChange}
+            >
+              <option value="">Select room type</option>
+              {roomTypes.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
             </select>
           </div>
 
           <div className="form-group">
             <label>Price</label>
-            <input type="text" placeholder="$199.00" />
+            <input
+              type="text"
+              name="price"
+              value={form.price}
+              onChange={handleFormChange}
+              placeholder="20000"
+            />
           </div>
 
-          <div className="form-group">
+          <div className="form-group form-group-full">
             <label>Status</label>
-            <select defaultValue="active">
+            <select
+              name="status"
+              value={form.status}
+              onChange={handleFormChange}
+            >
               <option value="active">Active</option>
               <option value="out_of_order">Out of Order</option>
             </select>
@@ -196,27 +415,60 @@ function Rooms() {
 
           <div className="form-group form-group-full">
             <label>Room Photos</label>
-            <div className="upload-grid compact-upload">
-              <button type="button" className="upload-card upload-card-add">
-                <div className="upload-visual upload-visual-dashed">
-                  <span className="material-symbols-outlined">add_photo_alternate</span>
-                </div>
-                <strong>Add Room Photo</strong>
-                <span>Upload room-specific images</span>
-              </button>
-            </div>
+
+            {currentRoom ? (
+              <div className="upload-grid compact-upload">
+                {(currentRoom.photos || []).map((photo, index) => (
+                  <div className="upload-card" key={photo.id}>
+                    <img
+                      className="gallery-image"
+                      src={photo.image}
+                      alt={`Room ${index + 1}`}
+                    />
+                    <strong>Photo {index + 1}</strong>
+                    <span>Sort order: {photo.sort_order}</span>
+                  </div>
+                ))}
+
+                <label className="upload-card upload-card-add">
+                  <div className="upload-visual upload-visual-dashed">
+                    <span className="material-symbols-outlined">add_photo_alternate</span>
+                  </div>
+                  <strong>{uploading ? "Uploading..." : "Add Room Photo"}</strong>
+                  <span>Choose an image file</span>
+                  <input
+                    className="hidden-file-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUploadPhoto}
+                    disabled={uploading}
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="empty-panel">
+                Save the room first, then upload room photos.
+              </div>
+            )}
           </div>
         </div>
 
         <div className="action-bar with-top-border">
-          <button className="btn btn-light" type="button">
+          <button className="btn btn-light" type="button" onClick={resetForm}>
             Cancel
           </button>
-          <button className="btn btn-primary" type="button">
-            Save Room
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={handleSaveRoom}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : form.id ? "Update Room" : "Save Room"}
           </button>
         </div>
       </InfoSection>
+
+      {loading ? <div className="empty-panel">Loading rooms...</div> : null}
     </DashboardLayout>
   );
 }

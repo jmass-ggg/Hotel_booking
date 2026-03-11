@@ -30,6 +30,19 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
 
+class UserMeSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(source="role.name", read_only=True)
+    seller_profile_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "role", "seller_profile_id"]
+
+    def get_seller_profile_id(self, obj):
+        seller_profile = getattr(obj, "seller_profile", None)
+        return str(seller_profile.id) if seller_profile else None
+        
+
 class AdminCreateSellerOrStaff(serializers.Serializer):
     ROLE_CHOICES = [
         Roles.RoleType.SELLER,

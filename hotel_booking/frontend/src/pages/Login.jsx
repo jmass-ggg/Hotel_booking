@@ -1,14 +1,19 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/login.css";
+import { loginUser } from "../api/authApi";
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = location.state?.from?.pathname || "/profile";
 
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
@@ -17,7 +22,7 @@ function Login() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.email || !formData.password) {
@@ -25,7 +30,21 @@ function Login() {
       return;
     }
 
-    navigate("/profile");
+    try {
+      setLoading(true);
+
+      await loginUser({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      navigate(redirectTo, { replace: true });
+    } catch (error) {
+      console.error("Login error:", error);
+      alert(error.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -69,8 +88,8 @@ function Login() {
             />
           </div>
 
-          <button type="submit" className="login-btn">
-            Sign In
+          <button type="submit" className="login-btn" disabled={loading}>
+            {loading ? "Signing In..." : "Sign In"}
           </button>
         </form>
       </section>

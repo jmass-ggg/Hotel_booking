@@ -1,46 +1,72 @@
+import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import InfoSection from "../components/seller/InfoSection";
-import OverviewCard from "../components/seller/OverviewCard";
-import ProfileCard from "../components/seller/ProfileCard";
-import SecurityCard from "../components/seller/SecurityCard";
+import { getMe } from "../api/authApi";
 import "../styles/sellerProfile.css";
 
 function SellerProfile() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const data = await getMe();
+      setUser(data);
+    } catch (err) {
+      setError(err.message || "Failed to load profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const initials = useMemo(() => {
+    if (!user?.username) return "U";
+    return user.username.charAt(0).toUpperCase();
+  }, [user]);
+
+  const verificationText = useMemo(() => {
+    return user ? "Verified Login" : "Unknown";
+  }, [user]);
+
   const stats = [
     {
-      label: "Profile Completion",
-      value: "92%",
-      helper: "Almost ready for full marketplace visibility",
+      label: "Username",
+      value: user?.username || "-",
+      helper: "Loaded from /api/auth/me/",
+    },
+    {
+      label: "Email",
+      value: user?.email || "-",
+      helper: "Current account email",
     },
     {
       label: "Verification",
-      value: "Verified",
-      helper: "Identity and business details approved",
-      badge: "Active",
-      tone: "success",
-    },
-    {
-      label: "Support SLA",
-      value: "< 10 min",
-      helper: "Average first response time this month",
+      value: verificationText,
+      helper: "Based on authenticated me API response",
+      badge: user ? "Active" : "Unknown",
+      tone: user ? "success" : "warning",
     },
   ];
 
   return (
     <DashboardLayout
       title="Seller Profile"
-      subtitle="Manage your identity, support channels and operational settings across the platform."
+      subtitle="Account information loaded from your me API."
       actions={
-        <>
-          <button className="btn btn-light" type="button">
-            Export Profile
-          </button>
-          <button className="btn btn-primary" type="button">
-            Save Changes
-          </button>
-        </>
+        <button className="btn btn-primary" type="button" onClick={loadProfile}>
+          Refresh Profile
+        </button>
       }
     >
+      {error ? <div className="status-message error">{error}</div> : null}
+
       <div className="stats-grid">
         {stats.map((item) => (
           <section className="card stat-card" key={item.label}>
@@ -58,84 +84,96 @@ function SellerProfile() {
 
       <div className="profile-layout">
         <div className="profile-left">
-          <ProfileCard />
-          <OverviewCard />
+          <section className="card profile-card">
+            <div className="profile-image-wrap">
+              <div className="profile-image">{initials}</div>
+            </div>
+
+            <h3>{loading ? "Loading..." : user?.username || "Unknown User"}</h3>
+            <p className="profile-company">{user?.email || "No email found"}</p>
+
+            <div className="profile-info-list">
+              <div className="profile-info-item">
+                <span className="material-symbols-outlined">person</span>
+                <span>{user?.username || "-"}</span>
+              </div>
+
+              <div className="profile-info-item">
+                <span className="material-symbols-outlined">mail</span>
+                <span>{user?.email || "-"}</span>
+              </div>
+
+              <div className="profile-info-item">
+                <span className="material-symbols-outlined">verified_user</span>
+                <span>{verificationText}</span>
+              </div>
+
+              <div className="profile-info-item">
+                <span className="material-symbols-outlined">badge</span>
+                <span>Role ID: {user?.role ?? "-"}</span>
+              </div>
+            </div>
+          </section>
         </div>
 
         <div className="profile-right">
-          <InfoSection title="Personal Information">
+          <InfoSection title="Account Information">
             <div className="form-grid">
               <div className="form-group">
-                <label>First Name</label>
-                <input type="text" defaultValue="Alex" />
-              </div>
-
-              <div className="form-group">
-                <label>Last Name</label>
-                <input type="text" defaultValue="Johnson" />
-              </div>
-
-              <div className="form-group">
-                <label>Email Address</label>
-                <input
-                  type="email"
-                  defaultValue="alex.johnson@royalsuites.com"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Phone Number</label>
-                <input type="text" defaultValue="+1 (555) 123-4567" />
-              </div>
-            </div>
-          </InfoSection>
-
-          <InfoSection title="Business Details">
-            <div className="form-group form-group-full">
-              <label>Business Name</label>
-              <input type="text" defaultValue="Royal Suites Group LLC" />
-            </div>
-
-            <div className="form-grid section-gap">
-              <div className="form-group">
-                <label>Tax ID / VAT Number</label>
-                <input type="text" defaultValue="US-987654321" />
-              </div>
-
-              <div className="form-group">
-                <label>Business Address</label>
+                <label>Username</label>
                 <input
                   type="text"
-                  defaultValue="500 5th Ave, New York, NY 10110"
+                  value={user?.username || ""}
+                  readOnly
+                  placeholder="Username"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Email</label>
+                <input
+                  type="email"
+                  value={user?.email || ""}
+                  readOnly
+                  placeholder="Email"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Verification</label>
+                <input
+                  type="text"
+                  value={verificationText}
+                  readOnly
+                  placeholder="Verification"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Role</label>
+                <input
+                  type="text"
+                  value={user?.role ?? ""}
+                  readOnly
+                  placeholder="Role"
                 />
               </div>
             </div>
           </InfoSection>
 
-          <InfoSection title="Contact Details">
-            <div className="form-grid">
-              <div className="form-group">
-                <label>Support Email</label>
-                <input type="email" defaultValue="support@royalsuites.com" />
-              </div>
-
-              <div className="form-group">
-                <label>Support Phone</label>
-                <input type="text" defaultValue="+1 (800) 987-6543" />
-              </div>
+          <section className="card">
+            <div className="mini-panel-header">
+              <h3>API Response Summary</h3>
+              <span className="status-pill success">Live</span>
             </div>
-          </InfoSection>
 
-          <SecurityCard />
+            <p className="muted-paragraph">
+              This page is using <strong>/api/auth/me/</strong> and showing only
+              username, email, role and a verification label.
+            </p>
+          </section>
 
-          <div className="action-bar">
-            <button className="btn btn-light" type="button">
-              Discard Changes
-            </button>
-            <button className="btn btn-primary" type="button">
-              Save Changes
-            </button>
-          </div>
+          {loading ? <div className="empty-panel">Loading profile...</div> : null}
         </div>
       </div>
     </DashboardLayout>

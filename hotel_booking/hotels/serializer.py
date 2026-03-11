@@ -10,12 +10,28 @@ class PropertyPhotoSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyPhoto
         fields = ["id", "image", "sort_order"]
+    def get_image(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
+
 
 
 class RoomPhotoSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoomPhoto
         fields = ["id", "image", "sort_order"]
+    def get_image(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
+
 
 
 class RoomTypeSerializer(serializers.ModelSerializer):
@@ -64,7 +80,6 @@ class RoomSerializer(serializers.ModelSerializer):
         fields = ["id", "property", "room_type", "room_number", "floor", "status", "price", "photos"]
         read_only_fields = ["property"]
 
-
 class AmenitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Amenity
@@ -72,21 +87,63 @@ class AmenitySerializer(serializers.ModelSerializer):
 
 
 class PropertyAmenitySerializer(serializers.ModelSerializer):
-    amenity_detail = AmenitySerializer(source="amenity", read_only=True)
+    amenity = AmenitySerializer()
 
     class Meta:
         model = PropertyAmenity
-        fields = ["id", "property", "amenity", "amenity_detail"]
-        read_only_fields = ["property"]
+        fields = ["id", "amenity"]
+        read_only_fields = ["id"]
+
+    # def create(self, validated_data):
+    #     amenity_data = validated_data.pop("amenity")
+    #     amenity, _ = Amenity.objects.get_or_create(
+    #         name=amenity_data["name"],
+    #         defaults={"category": amenity_data.get("category", "")}
+    #     )
+    #     return PropertyAmenity.objects.create(amenity=amenity, **validated_data)
+
+    # def update(self, instance, validated_data):
+    #     amenity_data = validated_data.pop("amenity", None)
+
+    #     if amenity_data:
+    #         amenity, _ = Amenity.objects.get_or_create(
+    #             name=amenity_data["name"],
+    #             defaults={"category": amenity_data.get("category", "")}
+    #         )
+    #         instance.amenity = amenity
+
+    #     instance.save()
+    #     return instance
 
 
 class RoomTypeAmenitySerializer(serializers.ModelSerializer):
-    amenity_detail = AmenitySerializer(source="amenity", read_only=True)
+    amenity = AmenitySerializer()
 
     class Meta:
         model = RoomTypeAmenity
-        fields = ["id", "room_type", "amenity", "amenity_detail"]
-        read_only_fields = ["room_type"]
+        fields = ["id", "amenity"]
+        read_only_fields = ["id"]
+
+    # def create(self, validated_data):
+    #     amenity_data = validated_data.pop("amenity")
+    #     amenity, _ = Amenity.objects.get_or_create(
+    #         name=amenity_data["name"],
+    #         defaults={"category": amenity_data.get("category", "")}
+    #     )
+    #     return RoomTypeAmenity.objects.create(amenity=amenity, **validated_data)
+
+    # def update(self, instance, validated_data):
+    #     amenity_data = validated_data.pop("amenity", None)
+
+    #     if amenity_data:
+    #         amenity, _ = Amenity.objects.get_or_create(
+    #             name=amenity_data["name"],
+    #             defaults={"category": amenity_data.get("category", "")}
+    #         )
+    #         instance.amenity = amenity
+
+    #     instance.save()
+    #     return instance
 
 
 class PropertySerializer(serializers.ModelSerializer):
