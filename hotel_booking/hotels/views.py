@@ -83,16 +83,24 @@ class PropertyViewSet(viewsets.ModelViewSet):
         if self.action in ["by_seller", "by_name"]:
             return [IsAuthenticated(), IsSeller()]
 
-        return [IsSellerWritePublicRead()]
+        if self.action == "set_status":
+            return [IsAuthenticated(), IsAdminOrStaff()]
+
+        return [permission() for permission in self.permission_classes]
     
     def get_queryset(self):
         queryset = (
             Property.objects.all()
             .select_related("seller", "seller__user")
-            .prefetch_related("photos", "rooms", "room_types","propertyamenity_set__amenity",
-            "room_types__roomtypeamenity_set__amenity")
+            .prefetch_related(
+                "photos",
+                "rooms",
+                "room_types",
+                "property_amenities__amenity",
+                "room_types__room_type_amenities__amenity",
+            )
         )
-
+        return queryset
         return queryset
     def get_serializer_class(self):
         if self.action in ("create", "update", "partial_update"):
@@ -192,7 +200,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["post"],
-        permission_classes=[IsAuthenticated, IsAdminOrStaff],
+        permission_classes=[ IsAdminOrStaff],
         url_path="set-status",
     )
     def set_status(self, request, pk=None):

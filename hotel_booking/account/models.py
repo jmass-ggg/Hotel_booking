@@ -9,6 +9,7 @@ class Roles(models.Model):
         SELLER = "SELLER", "Seller"
         ADMIN = "ADMIN", "Admin"
         STAFF = "STAFF", "Staff"
+        SELLER_STAFF="SELLER_STAFF","Seller staff"
 
     name = models.CharField(max_length=20, choices=RoleType.choices, unique=True)
     description = models.CharField(max_length=255, blank=True)
@@ -33,6 +34,7 @@ class User(AbstractUser):
         return self.username
 
 
+
 class SellerProfile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="seller_profile")
@@ -40,7 +42,26 @@ class SellerProfile(models.Model):
     def __str__(self):
         return f"SellerProfile({self.user.email})"
 
-
+class SellerStaffProfile(models.Model):
+    id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
+    user=models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="seller_staff_profile"
+    )
+    seller=models.ForeignKey(
+        SellerProfile,
+        on_delete=models.CASCADE,
+        related_name="staff_members"
+        
+    )
+    can_create = models.BooleanField(default=False)
+    can_update = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
+    can_view = models.BooleanField(default=True)
+    def __str__(self):
+        return f"{self.user.email} -> {self.seller.user.email}"
+    
 class AdminProfile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="admin_profile")

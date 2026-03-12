@@ -42,7 +42,42 @@ class UserMeSerializer(serializers.ModelSerializer):
         seller_profile = getattr(obj, "seller_profile", None)
         return str(seller_profile.id) if seller_profile else None
         
+class SellerCreateStaff(serializers.Serializer):
+    ROLE_CHOICES = [
+        Roles.RoleType.SELLER_STAFF,
+        
+    ]
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, min_length=8)
+    role=serializers.ChoiceField(choices=ROLE_CHOICES)
+    def create(self, validated_data):
+        username = validated_data.pop("username")
+        email = validated_data.pop("email")
+        password = validated_data.pop("password")
 
+        request = self.context["request"]
+
+        try:
+            seller_profile = request.user.seller_profile
+        except SellerProfile.DoesNotExist:
+            raise serializers.ValidationError("Logged in user does not have a seller profile.")
+
+        seller_staff_role = Roles.objects.get(name=Roles.RoleType.SELLER_STAFF)
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            role=seller_staff_role,
+        )
+
+        staff_profile = SellerStaffProfile.objects.create(
+            user=user,
+            seller=seller_profile,
+            **validated_data
+        )
+        return staff_profile
 class AdminCreateSellerOrStaff(serializers.Serializer):
     ROLE_CHOICES = [
         Roles.RoleType.SELLER,

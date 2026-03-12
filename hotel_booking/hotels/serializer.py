@@ -180,6 +180,13 @@ class PropertySerializer(serializers.ModelSerializer):
             "rooms",
         ]
         read_only_fields = ["id", "created_at", "photos", "room_types", "rooms"]
+    def get_image(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
 
 
 class PropertyCreateSerializer(serializers.ModelSerializer):
