@@ -44,7 +44,7 @@ class UserMeSerializer(serializers.ModelSerializer):
         return str(seller_profile.id) if seller_profile else None
 
 
-class SellerStaffListSerializer(serializers.Serializer):
+class SellerStaffListSerializer(serializers.ModelSerializer):
     username=serializers.CharField(source="user.username",read_only=True)
     email=serializers.EmailField(source="user.email",read_only=True)
     
