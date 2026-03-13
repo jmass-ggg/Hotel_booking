@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from django.conf import settings
 from django.conf.urls.static import static
 
-from account.views import AuthViewSet
+from account.views import AuthViewSet,SellerViewSet
 from hotels.views import PropertyViewSet, RoomTypeViewSet, RoomViewSet, RoomTypeAmenityViewSet, PropertyAmenityViewSet
 from bookings.views import BookingViewSet
 from drf_spectacular.views import (
@@ -17,6 +17,7 @@ router = DefaultRouter()
 router.register(r"auth", AuthViewSet, basename="auth")
 router.register(r"hotels", PropertyViewSet, basename="hotels")
 router.register(r"bookings", BookingViewSet, basename="bookings")
+router.register(r"seller-staff",SellerViewSet,basename="seller-staff")
 
 property_room_type_list = RoomTypeViewSet.as_view({"get": "list", "post": "create"})
 property_room_type_detail = RoomTypeViewSet.as_view(

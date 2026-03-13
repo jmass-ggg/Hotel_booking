@@ -4,6 +4,7 @@ from .models import Roles, SellerProfile
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import transaction
+from .models import SellerProfile,SellerStaffProfile
 User = get_user_model()
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -41,43 +42,79 @@ class UserMeSerializer(serializers.ModelSerializer):
     def get_seller_profile_id(self, obj):
         seller_profile = getattr(obj, "seller_profile", None)
         return str(seller_profile.id) if seller_profile else None
-        
+
+
+class SellerStaffListSerializer(serializers.Serializer):
+    username=serializers.CharField(source="user.username",read_only=True)
+    email=serializers.EmailField(source="user.email",read_only=True)
+    
+    class Meta:
+        model=SellerStaffProfile
+        fields = [
+            "id",
+            "username",
+            "email",
+            "can_create",
+            "can_update",
+            "can_delete",
+            "can_view",
+        ]
+    
+
 class SellerCreateStaff(serializers.Serializer):
-    ROLE_CHOICES = [
-        Roles.RoleType.SELLER_STAFF,
+    
+    username=serializers.CharField(write_only=True)
+    email=serializers.EmailField(write_only=True)
+    password=serializers.CharField(write_only=True,min_length=6)
+    
+    class Meta:
+            model = SellerStaffProfile
+            fields = [
+                "id",
+                "username",
+                "email",
+                "password",
+                "can_create",
+                "can_update",
+                "can_delete",
+                "can_view",
+            ]
+            read_only_fields = ["id"]
+    def create(self,validated_data):
+        username=validated_data.pop("username")
+        email=validated_data.pop("email")
+        password=validated_data.pop("password")
         
-    ]
-    username = serializers.CharField(max_length=150)
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, min_length=8)
-    role=serializers.ChoiceField(choices=ROLE_CHOICES)
-    def create(self, validated_data):
-        username = validated_data.pop("username")
-        email = validated_data.pop("email")
-        password = validated_data.pop("password")
-
-        request = self.context["request"]
-
+        request=self.context["request"]
+        
         try:
-            seller_profile = request.user.seller_profile
+            seller_profile=request.user.seller_profile
         except SellerProfile.DoesNotExist:
-            raise serializers.ValidationError("Logged in user does not have a seller profile.")
-
-        seller_staff_role = Roles.objects.get(name=Roles.RoleType.SELLER_STAFF)
-
-        user = User.objects.create_user(
-            username=username,
-            email=email,
+            raise serializers.ValidationError("Logged")
+        seller_staff_role=Roles.objects.get(name=Roles.RoleType.SELLER_STAFF)
+        user=User.objects.create_user(
+            username=username
+            ,email=email,
             password=password,
-            role=seller_staff_role,
+            role=seller_staff_role
         )
-
-        staff_profile = SellerStaffProfile.objects.create(
+        staff_profile=SellerStaffProfile.objects.create(
             user=user,
             seller=seller_profile,
             **validated_data
         )
         return staff_profile
+
+class SellerStaffPermissionUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model=SellerStaffProfile
+        fields=[
+            "can_create",
+                "can_update",
+                "can_delete",
+                "can_view",
+        ]
+    
 class AdminCreateSellerOrStaff(serializers.Serializer):
     ROLE_CHOICES = [
         Roles.RoleType.SELLER,
@@ -110,7 +147,8 @@ class AdminCreateSellerOrStaff(serializers.Serializer):
         if role_name == "SELLER":
             SellerProfile.objects.create(user=user)
         return user
-        
+
+
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
