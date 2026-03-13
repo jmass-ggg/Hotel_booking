@@ -20,17 +20,19 @@ const emptyCreateForm = {
   can_view: true,
 };
 
+const emptyPermissionForm = {
+  can_create: false,
+  can_update: false,
+  can_delete: false,
+  can_view: false,
+};
+
 function SellerRoles() {
-  const [me, setMe] = useState(null);
+  const [user, setUser] = useState(null);
   const [staffList, setStaffList] = useState([]);
-  const [createForm, setCreateForm] = useState(emptyCreateForm);
-  const [editingId, setEditingId] = useState(null);
-  const [permissionForm, setPermissionForm] = useState({
-    can_create: false,
-    can_update: false,
-    can_delete: false,
-    can_view: false,
-  });
+  const [form, setForm] = useState(emptyCreateForm);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [permissionForm, setPermissionForm] = useState(emptyPermissionForm);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,25 +40,18 @@ function SellerRoles() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const isSeller = me?.role === "SELLER";
-
   const loadData = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const meData = await getMe();
-      setMe(meData);
+      const me = await getMe();
+      setUser(me);
 
-      if (meData?.role !== "SELLER") {
-        setStaffList([]);
-        return;
-      }
-
-      const staffData = await getSellerStaff();
-      setStaffList(Array.isArray(staffData) ? staffData : []);
+      const staff = await getSellerStaff();
+      setStaffList(Array.isArray(staff) ? staff : []);
     } catch (err) {
-      setError(err?.message || "Failed to load seller staff.");
+      setError(err.message || "Failed to load seller staff.");
     } finally {
       setLoading(false);
     }
@@ -67,39 +62,34 @@ function SellerRoles() {
   }, []);
 
   const stats = useMemo(() => {
-    const total = staffList.length;
-    const createCount = staffList.filter((item) => item.can_create).length;
-    const updateCount = staffList.filter((item) => item.can_update).length;
-    const deleteCount = staffList.filter((item) => item.can_delete).length;
-
     return [
       {
         label: "Total Staff",
-        value: String(total),
-        helper: "Seller staff accounts under your profile",
+        value: String(staffList.length),
+        helper: "Staff members under this seller",
       },
       {
-        label: "Create Access",
-        value: String(createCount),
-        helper: "Staff who can create records",
+        label: "Can Create",
+        value: String(staffList.filter((item) => item.can_create).length),
+        helper: "Staff with create permission",
       },
       {
-        label: "Delete Access",
-        value: String(deleteCount),
-        helper: "Staff who can delete records",
+        label: "Can Delete",
+        value: String(staffList.filter((item) => item.can_delete).length),
+        helper: "Staff with delete permission",
       },
     ];
   }, [staffList]);
 
-  const handleCreateFormChange = (e) => {
+  const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setCreateForm((prev) => ({
+    setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  const handlePermissionFormChange = (e) => {
+  const handlePermissionChange = (e) => {
     const { name, checked } = e.target;
     setPermissionForm((prev) => ({
       ...prev,
@@ -107,14 +97,45 @@ function SellerRoles() {
     }));
   };
 
-  const resetCreateForm = () => {
-    setCreateForm(emptyCreateForm);
+  const resetForm = () => {
+    setForm(emptyCreateForm);
     setError("");
     setSuccess("");
   };
 
+  const handleCreateStaff = async () => {
+    if (!form.username.trim() || !form.email.trim() || !form.password.trim()) {
+      setError("Username, email and password are required.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+      setSuccess("");
+
+      await createSellerStaff({
+        username: form.username.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        can_create: form.can_create,
+        can_update: form.can_update,
+        can_delete: form.can_delete,
+        can_view: form.can_view,
+      });
+
+      setSuccess("Seller staff created successfully.");
+      setForm(emptyCreateForm);
+      await loadData();
+    } catch (err) {
+      setError(err.message || "Failed to create seller staff.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openPermissionEditor = (staff) => {
-    setEditingId(staff.id);
+    setEditingStaff(staff);
     setPermissionForm({
       can_create: !!staff.can_create,
       can_update: !!staff.can_update,
@@ -126,61 +147,25 @@ function SellerRoles() {
   };
 
   const closePermissionEditor = () => {
-    setEditingId(null);
-    setPermissionForm({
-      can_create: false,
-      can_update: false,
-      can_delete: false,
-      can_view: false,
-    });
+    setEditingStaff(null);
+    setPermissionForm(emptyPermissionForm);
   };
 
-  const handleCreateStaff = async () => {
-    if (!createForm.username.trim() || !createForm.email.trim() || !createForm.password.trim()) {
-      setError("Username, email and password are required.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setError("");
-      setSuccess("");
-
-      await createSellerStaff({
-        username: createForm.username.trim(),
-        email: createForm.email.trim(),
-        password: createForm.password,
-        can_create: createForm.can_create,
-        can_update: createForm.can_update,
-        can_delete: createForm.can_delete,
-        can_view: createForm.can_view,
-      });
-
-      setSuccess("Seller staff created successfully.");
-      resetCreateForm();
-      await loadData();
-    } catch (err) {
-      setError(err?.message || "Failed to create seller staff.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleUpdatePermissions = async () => {
-    if (!editingId) return;
+  const handleSavePermissions = async () => {
+    if (!editingStaff?.id) return;
 
     try {
       setPermissionSaving(true);
       setError("");
       setSuccess("");
 
-      await updateSellerStaffPermissions(editingId, permissionForm);
+      await updateSellerStaffPermissions(editingStaff.id, permissionForm);
 
-      setSuccess("Staff permissions updated successfully.");
+      setSuccess("Permissions updated successfully.");
       closePermissionEditor();
       await loadData();
     } catch (err) {
-      setError(err?.message || "Failed to update permissions.");
+      setError(err.message || "Failed to update permissions.");
     } finally {
       setPermissionSaving(false);
     }
@@ -194,30 +179,30 @@ function SellerRoles() {
       await deleteSellerStaff(staffId);
       setSuccess("Seller staff deleted successfully.");
 
-      if (editingId === staffId) {
+      if (editingStaff?.id === staffId) {
         closePermissionEditor();
       }
 
       await loadData();
     } catch (err) {
-      setError(err?.message || "Failed to delete seller staff.");
+      setError(err.message || "Failed to delete seller staff.");
     }
   };
 
   return (
     <DashboardLayout
       title="Seller Staff"
-      subtitle="Create staff accounts and manage their permissions."
+      subtitle="Create staff accounts and manage permission access."
       actions={
         <>
-          <button className="btn btn-light" type="button" onClick={resetCreateForm}>
-            Reset Form
+          <button className="btn btn-light" type="button" onClick={resetForm}>
+            Reset
           </button>
           <button
             className="btn btn-primary"
             type="button"
             onClick={handleCreateStaff}
-            disabled={saving || !isSeller}
+            disabled={saving}
           >
             {saving ? "Creating..." : "Create Staff"}
           </button>
@@ -226,12 +211,6 @@ function SellerRoles() {
     >
       {error ? <div className="status-message error">{error}</div> : null}
       {success ? <div className="status-message success">{success}</div> : null}
-
-      {!loading && !isSeller ? (
-        <div className="empty-panel">
-          This page is only available for users whose role is <strong>SELLER</strong>.
-        </div>
-      ) : null}
 
       <div className="stats-grid">
         {stats.map((item) => (
@@ -252,10 +231,9 @@ function SellerRoles() {
             <input
               type="text"
               name="username"
-              value={createForm.username}
-              onChange={handleCreateFormChange}
-              placeholder="staff_user"
-              disabled={!isSeller}
+              value={form.username}
+              onChange={handleFormChange}
+              placeholder="staff_username"
             />
           </div>
 
@@ -264,10 +242,9 @@ function SellerRoles() {
             <input
               type="email"
               name="email"
-              value={createForm.email}
-              onChange={handleCreateFormChange}
+              value={form.email}
+              onChange={handleFormChange}
               placeholder="staff@example.com"
-              disabled={!isSeller}
             />
           </div>
 
@@ -276,10 +253,9 @@ function SellerRoles() {
             <input
               type="password"
               name="password"
-              value={createForm.password}
-              onChange={handleCreateFormChange}
-              placeholder="Minimum 6 characters"
-              disabled={!isSeller}
+              value={form.password}
+              onChange={handleFormChange}
+              placeholder="Enter password"
             />
           </div>
 
@@ -287,11 +263,22 @@ function SellerRoles() {
             <label className="checkbox-label">
               <input
                 type="checkbox"
+                name="can_view"
+                checked={form.can_view}
+                onChange={handleFormChange}
+              />
+              Can View
+            </label>
+          </div>
+
+          <div className="form-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
                 name="can_create"
-                checked={createForm.can_create}
-                onChange={handleCreateFormChange}
-                disabled={!isSeller}
-              />{" "}
+                checked={form.can_create}
+                onChange={handleFormChange}
+              />
               Can Create
             </label>
           </div>
@@ -301,10 +288,9 @@ function SellerRoles() {
               <input
                 type="checkbox"
                 name="can_update"
-                checked={createForm.can_update}
-                onChange={handleCreateFormChange}
-                disabled={!isSeller}
-              />{" "}
+                checked={form.can_update}
+                onChange={handleFormChange}
+              />
               Can Update
             </label>
           </div>
@@ -314,37 +300,23 @@ function SellerRoles() {
               <input
                 type="checkbox"
                 name="can_delete"
-                checked={createForm.can_delete}
-                onChange={handleCreateFormChange}
-                disabled={!isSeller}
-              />{" "}
+                checked={form.can_delete}
+                onChange={handleFormChange}
+              />
               Can Delete
-            </label>
-          </div>
-
-          <div className="form-group">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                name="can_view"
-                checked={createForm.can_view}
-                onChange={handleCreateFormChange}
-                disabled={!isSeller}
-              />{" "}
-              Can View
             </label>
           </div>
         </div>
 
         <div className="action-bar with-top-border">
-          <button className="btn btn-light" type="button" onClick={resetCreateForm}>
+          <button className="btn btn-light" type="button" onClick={resetForm}>
             Reset
           </button>
           <button
             className="btn btn-primary"
             type="button"
             onClick={handleCreateStaff}
-            disabled={saving || !isSeller}
+            disabled={saving}
           >
             {saving ? "Creating..." : "Create Staff"}
           </button>
@@ -354,9 +326,9 @@ function SellerRoles() {
       <section className="card table-card">
         <div className="table-toolbar">
           <div>
-            <span className="eyebrow">Seller Staff</span>
-            <h3>Manage Staff Accounts</h3>
-            <p>View all staff created under the logged-in seller.</p>
+            <span className="eyebrow">Staff List</span>
+            <h3>Seller Staff Accounts</h3>
+            <p>Manage the staff members created by this seller account.</p>
           </div>
         </div>
 
@@ -373,42 +345,28 @@ function SellerRoles() {
                 <th className="table-actions">Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {staffList.map((staff) => (
                 <tr key={staff.id}>
                   <td>{staff.username}</td>
                   <td>{staff.email}</td>
-                  <td>
-                    <span className={`status-pill ${staff.can_view ? "success" : "neutral"}`}>
-                      {staff.can_view ? "Yes" : "No"}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`status-pill ${staff.can_create ? "success" : "neutral"}`}>
-                      {staff.can_create ? "Yes" : "No"}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`status-pill ${staff.can_update ? "success" : "neutral"}`}>
-                      {staff.can_update ? "Yes" : "No"}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`status-pill ${staff.can_delete ? "danger" : "neutral"}`}>
-                      {staff.can_delete ? "Yes" : "No"}
-                    </span>
-                  </td>
+                  <td>{staff.can_view ? "Yes" : "No"}</td>
+                  <td>{staff.can_create ? "Yes" : "No"}</td>
+                  <td>{staff.can_update ? "Yes" : "No"}</td>
+                  <td>{staff.can_delete ? "Yes" : "No"}</td>
                   <td className="table-actions">
                     <button
-                      className="table-link"
                       type="button"
+                      className="table-link"
                       onClick={() => openPermissionEditor(staff)}
                     >
                       Edit Permissions
                     </button>
+
                     <button
-                      className="table-link table-link-danger"
                       type="button"
+                      className="table-link table-link-danger"
                       onClick={() => handleDeleteStaff(staff.id)}
                     >
                       Delete
@@ -429,8 +387,8 @@ function SellerRoles() {
         </div>
       </section>
 
-      {editingId ? (
-        <InfoSection title="Edit Staff Permissions">
+      {editingStaff ? (
+        <InfoSection title={`Edit Permissions - ${editingStaff.username}`}>
           <div className="form-grid">
             <div className="form-group">
               <label className="checkbox-label">
@@ -438,8 +396,8 @@ function SellerRoles() {
                   type="checkbox"
                   name="can_view"
                   checked={permissionForm.can_view}
-                  onChange={handlePermissionFormChange}
-                />{" "}
+                  onChange={handlePermissionChange}
+                />
                 Can View
               </label>
             </div>
@@ -450,8 +408,8 @@ function SellerRoles() {
                   type="checkbox"
                   name="can_create"
                   checked={permissionForm.can_create}
-                  onChange={handlePermissionFormChange}
-                />{" "}
+                  onChange={handlePermissionChange}
+                />
                 Can Create
               </label>
             </div>
@@ -462,8 +420,8 @@ function SellerRoles() {
                   type="checkbox"
                   name="can_update"
                   checked={permissionForm.can_update}
-                  onChange={handlePermissionFormChange}
-                />{" "}
+                  onChange={handlePermissionChange}
+                />
                 Can Update
               </label>
             </div>
@@ -474,8 +432,8 @@ function SellerRoles() {
                   type="checkbox"
                   name="can_delete"
                   checked={permissionForm.can_delete}
-                  onChange={handlePermissionFormChange}
-                />{" "}
+                  onChange={handlePermissionChange}
+                />
                 Can Delete
               </label>
             </div>
@@ -488,7 +446,7 @@ function SellerRoles() {
             <button
               className="btn btn-primary"
               type="button"
-              onClick={handleUpdatePermissions}
+              onClick={handleSavePermissions}
               disabled={permissionSaving}
             >
               {permissionSaving ? "Saving..." : "Save Permissions"}
@@ -498,6 +456,12 @@ function SellerRoles() {
       ) : null}
 
       {loading ? <div className="empty-panel">Loading seller staff...</div> : null}
+
+      {user?.role !== "SELLER" && !loading ? (
+        <div className="empty-panel">
+          Only users with role <strong>SELLER</strong> can access this page.
+        </div>
+      ) : null}
     </DashboardLayout>
   );
 }

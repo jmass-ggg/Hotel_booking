@@ -1,12 +1,20 @@
 import { NavLink } from "react-router-dom";
 
-function Sidebar() {
+function Sidebar({ user }) {
   const items = [
     { icon: "person_outline", label: "Seller Profile", to: "/profile" },
     { icon: "apartment", label: "My Hotel", to: "/my-hotel" },
     { icon: "category", label: "Room Types", to: "/room-types" },
     { icon: "bed", label: "Rooms", to: "/rooms" },
   ];
+
+  if (user?.role === "SELLER") {
+    items.push({
+      icon: "groups",
+      label: "Seller Staff",
+      to: "/seller-staff",
+    });
+  }
 
   return (
     <aside className="sidebar">

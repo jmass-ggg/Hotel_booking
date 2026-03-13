@@ -1,21 +1,25 @@
-import http from "./http";
+import { apiRequest } from "./http";
 
 export async function getSellerStaff() {
-  const { data } = await http.get("/seller-staff/");
-  return data;
+  return apiRequest("/seller-staff/");
 }
 
 export async function createSellerStaff(payload) {
-  const { data } = await http.post("/seller-staff/", payload);
-  return data;
+  return apiRequest("/seller-staff/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function updateSellerStaffPermissions(staffId, payload) {
-  const { data } = await http.patch(`/seller-staff/${staffId}/permissions/`, payload);
-  return data;
+  return apiRequest(`/seller-staff/${staffId}/permissions/`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function deleteSellerStaff(staffId) {
-  const { data } = await http.delete(`/seller-staff/${staffId}/`);
-  return data;
+  return apiRequest(`/seller-staff/${staffId}/`, {
+    method: "DELETE",
+  });
 }

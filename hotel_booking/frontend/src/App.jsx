@@ -5,6 +5,7 @@ import SellerProfile from "./pages/SellerProfile";
 import MyHotel from "./pages/MyHotel";
 import RoomTypes from "./pages/RoomTypes";
 import Rooms from "./pages/Rooms";
+import SellerRoles from "./pages/SellerRoles";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -47,6 +48,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <Rooms />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/seller-staff"
+            element={
+              <ProtectedRoute allowedRoles={["SELLER"]}>
+                <SellerRoles />
               </ProtectedRoute>
             }
           />

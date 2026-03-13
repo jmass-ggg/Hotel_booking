@@ -12,6 +12,7 @@ export const setAuthTokens = (data) => {
 export const clearAuth = () => {
   localStorage.removeItem("access");
   localStorage.removeItem("refresh");
+  localStorage.removeItem("me");
 };
 
 const buildErrorMessage = (data, response) => {

@@ -3,9 +3,10 @@ import { Navigate, useLocation } from "react-router-dom";
 import { getMe } from "../api/authApi";
 import { clearAuth, getAccessToken } from "../api/http";
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children, allowedRoles = [] }) {
   const location = useLocation();
   const [status, setStatus] = useState("checking");
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -19,8 +20,19 @@ function ProtectedRoute({ children }) {
       }
 
       try {
-        await getMe();
-        if (mounted) setStatus("authenticated");
+        const me = await getMe();
+
+        if (!mounted) return;
+
+        localStorage.setItem("me", JSON.stringify(me));
+        setUser(me);
+
+        if (allowedRoles.length > 0 && !allowedRoles.includes(me?.role)) {
+          setStatus("forbidden");
+          return;
+        }
+
+        setStatus("authenticated");
       } catch (error) {
         clearAuth();
         if (mounted) setStatus("unauthenticated");
@@ -32,7 +44,7 @@ function ProtectedRoute({ children }) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [allowedRoles]);
 
   if (status === "checking") {
     return (
@@ -51,6 +63,10 @@ function ProtectedRoute({ children }) {
 
   if (status === "unauthenticated") {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (status === "forbidden") {
+    return <Navigate to="/profile" replace />;
   }
 
   return children;
