@@ -18,7 +18,9 @@ export const clearAuth = () => {
 const buildErrorMessage = (data, response) => {
   if (response?.status === 404) return "API endpoint not found.";
   if (response?.status === 401) return "Unauthorized. Please login again.";
-  if (response?.status === 403) return "You do not have permission to perform this action.";
+  if (response?.status === 403) {
+    return "You do not have permission to perform this action.";
+  }
   if (response?.status === 500) return "Server error. Please try again.";
 
   if (!data) return "Request failed";
@@ -73,8 +75,7 @@ export async function apiRequest(endpoint, options = {}) {
     } else if (contentType.includes("application/json")) {
       data = await response.json();
     } else {
-      const text = await response.text();
-      data = text || null;
+      data = await response.text();
     }
   } catch {
     data = null;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import InfoSection from "../components/seller/InfoSection";
 import { getMe } from "../api/authApi";
@@ -8,11 +8,13 @@ function SellerProfile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const hasFetchedRef = useRef(false);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
+
       const data = await getMe();
       setUser(data);
     } catch (err) {
@@ -20,48 +22,58 @@ function SellerProfile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     loadProfile();
-  }, []);
+  }, [loadProfile]);
 
   const initials = useMemo(() => {
     if (!user?.username) return "U";
     return user.username.charAt(0).toUpperCase();
-  }, [user]);
+  }, [user?.username]);
 
   const verificationText = useMemo(() => {
     return user ? "Verified Login" : "Unknown";
   }, [user]);
 
-  const stats = [
-    {
-      label: "Username",
-      value: user?.username || "-",
-      helper: "Loaded from /api/auth/me/",
-    },
-    {
-      label: "Email",
-      value: user?.email || "-",
-      helper: "Current account email",
-    },
-    {
-      label: "Verification",
-      value: verificationText,
-      helper: "Based on authenticated me API response",
-      badge: user ? "Active" : "Unknown",
-      tone: user ? "success" : "warning",
-    },
-  ];
+  const stats = useMemo(
+    () => [
+      {
+        label: "Username",
+        value: user?.username || "-",
+        helper: "Loaded from /api/auth/me/",
+      },
+      {
+        label: "Email",
+        value: user?.email || "-",
+        helper: "Current account email",
+      },
+      {
+        label: "Verification",
+        value: verificationText,
+        helper: "Based on authenticated me API response",
+        badge: user ? "Active" : "Unknown",
+        tone: user ? "success" : "warning",
+      },
+    ],
+    [user, verificationText]
+  );
 
   return (
     <DashboardLayout
       title="Seller Profile"
       subtitle="Account information loaded from your me API."
       actions={
-        <button className="btn btn-primary" type="button" onClick={loadProfile}>
-          Refresh Profile
+        <button
+          className="btn btn-primary"
+          type="button"
+          onClick={loadProfile}
+          disabled={loading}
+        >
+          {loading ? "Refreshing..." : "Refresh Profile"}
         </button>
       }
     >
